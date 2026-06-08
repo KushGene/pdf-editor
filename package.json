@@ -1,0 +1,36 @@
+{
+  "name": "tauri-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.7.1",
+    "@tauri-apps/plugin-fs": "^2.5.1",
+    "@tauri-apps/plugin-opener": "^2",
+    "i18next": "^26.3.1",
+    "konva": "^10.3.0",
+    "lucide-react": "^1.17.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.0.227",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-i18next": "^17.0.8",
+    "react-konva": "^19.2.4",
+    "react-zoom-pan-pinch": "^3.6.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^4.6.0",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.4"
+  }
+}
