@@ -73,6 +73,29 @@ Examples:
 - [ ] Commit messages follow conventional format
 - [ ] PR description explains what and why
 
+## Release Process
+
+Only pushing a **version tag** to `main` triggers the CI/CD pipeline. Normal commits never create releases or binaries.
+
+### Steps
+
+1. **Finish the release branch** — merge `release/vX.Y.Z` into `main` (and back into `develop`).
+2. **Tag on `main`** — create an annotated tag matching the version:
+   ```bash
+   git checkout main
+   git pull origin main
+   git tag -a v0.2.0 -m "Release v0.2.0"
+   git push origin v0.2.0
+   ```
+3. **GitHub Actions runs automatically** — the workflow `.github/workflows/release.yml` builds the Tauri app for **Ubuntu** and **Windows**, then creates a GitHub Release and attaches the installers/binaries.
+4. **Download & verify** — check the generated Release page and test both `.msi` (Windows) and `.deb`/`.AppImage` (Linux) artifacts.
+
+### Important
+
+- Do **not** create manual GitHub Releases. Always use a `v*` tag push.
+- The release body is auto-generated; edit it on GitHub afterwards if needed.
+- If a build fails, delete the tag, fix the issue, and re-push the tag.
+
 ## Commands
 
 ```bash
@@ -99,7 +122,7 @@ git rebase origin/develop
 git checkout develop
 git checkout -b release/v0.2.0
 
-# Tag a release
+# Tag a release (triggers CI/CD builds)
 git checkout main
 git tag -a v0.2.0 -m "Release v0.2.0"
 git push origin v0.2.0
