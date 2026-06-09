@@ -17,6 +17,11 @@ This project uses **Git Flow** with two permanent branches and short-lived topic
 | `release/<v>` | Release preparation. Branch from `develop`. | Temporary |
 | `hotfix/<name>` | Critical production fixes. Branch from `main`. | Temporary |
 
+## Repository Setup
+
+1. **Default branch must be `develop`.** Go to GitHub Settings → Branches → Default branch and switch it from `main` to `develop`. This ensures all new PRs target `develop` automatically.
+2. **Branch protection** (recommended): Enable "Require a pull request before merging" and "Require status checks to pass" on both `main` and `develop`.
+
 ## Workflow Rules
 
 1. **Never commit directly to `main` or `develop`.** Always use a topic branch.
