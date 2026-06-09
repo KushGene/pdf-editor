@@ -88,7 +88,9 @@ Only pushing a **version tag** to `main` triggers the CI/CD pipeline. Normal com
    git push origin v0.2.0
    ```
 3. **GitHub Actions runs automatically** — the workflow `.github/workflows/release.yml` builds the Tauri app for **Ubuntu** and **Windows**, then creates a GitHub Release and attaches the installers/binaries.
-4. **Download & verify** — check the generated Release page and test both `.msi` (Windows) and `.deb`/`.AppImage` (Linux) artifacts.
+4. **Download & verify** — check the generated Release page and test:
+   - **Windows**: `.msi`
+   - **Linux**: `.deb`, `.rpm`, `.AppImage`
 
 ### Important
 
