@@ -23,6 +23,27 @@ function pdfFieldType(f: PDFField): string {
   return "other";
 }
 
+function ensureDefaultAppearance(
+  field: PDFTextField | PDFDropdown | PDFOptionList,
+  pdfDoc: PDFDocument
+) {
+  try {
+    if (field.acroField.getDefaultAppearance()) return;
+    const widgets = field.acroField.getWidgets();
+    for (const w of widgets) {
+      const wda = w.getDefaultAppearance();
+      if (wda) {
+        field.acroField.setDefaultAppearance(wda);
+        return;
+      }
+    }
+    const font = pdfDoc.getForm().getDefaultFont();
+    field.acroField.setDefaultAppearance(`0 g\n/${font.name} 12 Tf`);
+  } catch {
+    // ignore
+  }
+}
+
 const alignMap: Record<string, TextAlignment> = {
   left: TextAlignment.Left,
   center: TextAlignment.Center,
@@ -35,7 +56,10 @@ function applyProperties(
   pdfDoc: PDFDocument
 ) {
   if (f instanceof PDFTextField) {
-    if (ef.fontSize > 0) f.setFontSize(ef.fontSize);
+    if (ef.fontSize > 0) {
+      ensureDefaultAppearance(f, pdfDoc);
+      f.setFontSize(ef.fontSize);
+    }
     if (ef.alignment) f.setAlignment(alignMap[ef.alignment] ?? TextAlignment.Left);
     if (ef.multiline) f.enableMultiline();
     if (ef.readOnly) f.enableReadOnly();
@@ -237,7 +261,10 @@ export async function buildPdfBytes(
         ef.readOnly ? pdfField.enableReadOnly() : pdfField.disableReadOnly();
         ef.required ? pdfField.enableRequired() : pdfField.disableRequired();
         ef.multiline ? pdfField.enableMultiline() : pdfField.disableMultiline();
-        if (ef.fontSize > 0) pdfField.setFontSize(ef.fontSize);
+        if (ef.fontSize > 0) {
+          ensureDefaultAppearance(pdfField, pdfDoc);
+          pdfField.setFontSize(ef.fontSize);
+        }
         if (ef.alignment) pdfField.setAlignment(alignMap[ef.alignment] ?? TextAlignment.Left);
         if (ef.maxLength && ef.maxLength > 0) pdfField.setMaxLength(ef.maxLength);
         if (ef.tooltip !== undefined) pdfField.acroField.dict.set(PDFName.of("TU"), PDFString.of(ef.tooltip));
@@ -247,7 +274,10 @@ export async function buildPdfBytes(
         ef.required ? pdfField.enableRequired() : pdfField.disableRequired();
       } else if (pdfField instanceof PDFDropdown || pdfField instanceof PDFOptionList) {
         if (ef.options?.length) pdfField.acroField.dict.set(PDFName.of("Opt"), pdfDoc.context.obj(ef.options.map((o) => PDFString.of(o))));
-        if (ef.fontSize > 0) pdfField.setFontSize(ef.fontSize);
+        if (ef.fontSize > 0) {
+          ensureDefaultAppearance(pdfField, pdfDoc);
+          pdfField.setFontSize(ef.fontSize);
+        }
         if (ef.value === "") { pdfField.acroField.dict.delete(PDFName.of("V")); pdfField.acroField.dict.delete(PDFName.of("DV")); }
         else if (ef.value) {
           try { if (pdfField instanceof PDFDropdown) pdfField.select(ef.value); else pdfField.acroField.dict.set(PDFName.of("V"), PDFString.of(ef.value)); } catch { pdfField.acroField.dict.set(PDFName.of("V"), PDFString.of(ef.value)); }

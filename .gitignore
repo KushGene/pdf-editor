@@ -24,5 +24,5 @@ E-Check_clean.pdf
 *.njsproj
 *.sln
 *.sw?
-.devin/*
+.devin
 !.devin/workflows/
