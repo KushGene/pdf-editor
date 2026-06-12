@@ -40,8 +40,7 @@ jobs:
             echo ""
             echo "## Linux installation notes"
             echo ""
-            echo "- **Ubuntu 22.04 / Debian:** use the \`_22.04_amd64.deb\` package."
-            echo "- **Ubuntu 24.04 / Debian (newer):** use the \`_24.04_amd64.deb\` package."
+            echo "- **Debian / Ubuntu:** use the \`_amd64.deb\` package."
             echo "- **Fedora / RHEL / openSUSE:** prefer the \`.rpm\` package."
             echo "- **AppImage (universal):** make it executable first (\`chmod +x\`), then run it. If it does not start, install FUSE (Fedora: \`sudo dnf install fuse\`)."
             echo "EOF"
@@ -56,8 +55,6 @@ jobs:
       matrix:
         include:
           - platform: 'ubuntu-22.04'
-            args: ''
-          - platform: 'ubuntu-24.04'
             args: ''
           - platform: 'windows-latest'
             args: ''
