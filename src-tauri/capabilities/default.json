@@ -7,17 +7,12 @@
     "core:default",
     "opener:default",
     "dialog:default",
-    "fs:default",
     "fs:allow-read-file",
     "fs:allow-write-file",
+    "fs:allow-read-dir",
     "fs:scope-home-recursive",
     "fs:scope-download-recursive",
-    "fs:scope-desktop-recursive",
     "fs:scope-document-recursive",
-    "fs:scope-temp-recursive",
-    {
-      "identifier": "fs:scope",
-      "allow": ["**"]
-    }
+    "fs:scope-temp-recursive"
   ]
 }

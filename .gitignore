@@ -12,8 +12,6 @@ dist
 dist-ssr
 *.local
 
-E-Check_clean.pdf
-
 # Editor directories and files
 .vscode
 !.vscode/extensions.json
@@ -26,3 +24,4 @@ E-Check_clean.pdf
 *.sw?
 .devin
 .claude
+E-Check_clean.pdf
