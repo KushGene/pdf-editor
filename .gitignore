@@ -25,4 +25,4 @@ E-Check_clean.pdf
 *.sln
 *.sw?
 .devin
-!.devin/workflows/
+.claude

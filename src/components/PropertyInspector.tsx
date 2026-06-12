@@ -109,6 +109,31 @@ function NumberInput({
   );
 }
 
+function ColorInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <input
+      type="color"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{
+        width: "100%",
+        height: "28px",
+        padding: "2px",
+        backgroundColor: "#1e1e1e",
+        border: "1px solid #3e3e42",
+        borderRadius: "4px",
+        cursor: "pointer",
+      }}
+    />
+  );
+}
+
 function CheckboxRow({
   label,
   checked,
@@ -158,7 +183,7 @@ function CheckboxRow({
 
 export default function PropertyInspector() {
   const { t } = useTranslation();
-  const { selectedFieldId, formFields, setFormFields, pushHistory } = useWorkspace();
+  const { selectedFieldId, formFields, setFormFields, setSignatureFieldId, pushHistory } = useWorkspace();
   const field = formFields.find((f) => f.id === selectedFieldId);
   const hasPushedHistory = useRef(false);
 
@@ -167,10 +192,7 @@ export default function PropertyInspector() {
     hasPushedHistory.current = false;
   }, [selectedFieldId]);
 
-  function updateField<K extends keyof FormField>(
-    key: K,
-    value: FormField[K]
-  ) {
+  function updateFieldProps(partial: Partial<FormField>) {
     if (!field) return;
     if (!hasPushedHistory.current) {
       pushHistory();
@@ -179,22 +201,33 @@ export default function PropertyInspector() {
     setFormFields((prev) =>
       prev.map((f) => {
         if (f.id !== field.id) return f;
-        const updated = { ...f, [key]: value } as FormField;
-        return updated;
+        return { ...f, ...partial } as FormField;
       })
     );
   }
 
-  /** Update value on *all* fields that share the same name (PDF linked-field behaviour). */
+  function updateField<K extends keyof FormField>(
+    key: K,
+    value: FormField[K]
+  ) {
+    updateFieldProps({ [key]: value } as Partial<FormField>);
+  }
+
+  /**
+   * Update value on *all* fields that came from the same PDF field
+   * (PDF linked-field behaviour). Keyed by origName so the link survives
+   * renaming one of the editor fields.
+   */
   function updateSharedValue(value: string | undefined) {
     if (!field) return;
     if (!hasPushedHistory.current) {
       pushHistory();
       hasPushedHistory.current = true;
     }
+    const key = field.origName ?? field.name;
     setFormFields((prev) =>
       prev.map((f) => {
-        if (f.name === field.name) {
+        if ((f.origName ?? f.name) === key) {
           return { ...f, value } as FormField;
         }
         return f;
@@ -314,7 +347,39 @@ export default function PropertyInspector() {
               </InputRow>
             )}
 
-            {(field.type === "image" || field.type === "signature") && field.imageSrc && (
+            {field.type === "signature" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                {field.imageSrc && (
+                  <img
+                    src={field.imageSrc}
+                    alt=""
+                    style={{
+                      maxWidth: "100%",
+                      maxHeight: "70px",
+                      objectFit: "contain",
+                      backgroundColor: "#ffffff",
+                      borderRadius: "4px",
+                    }}
+                  />
+                )}
+                <button
+                  style={{ height: "28px", fontSize: "0.78rem" }}
+                  onClick={() => setSignatureFieldId(field.id)}
+                >
+                  {t("signCapture")}
+                </button>
+                {field.imageSrc && (
+                  <button
+                    style={{ height: "28px", fontSize: "0.78rem" }}
+                    onClick={() => updateField("imageSrc", undefined)}
+                  >
+                    {t("signRemove")}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {field.type === "image" && field.imageSrc && (
               <div style={{ fontSize: "0.75rem", color: "#6b7280" }}>
                 <p style={{ margin: 0 }}>Image stamp</p>
               </div>
@@ -377,6 +442,66 @@ export default function PropertyInspector() {
             )}
           </Accordion>
 
+          {field.type !== "image" && field.type !== "signature" && (
+            <Accordion title={t("appearance")}>
+              {(field.type === "text" || field.type === "dropdown" || field.type === "list") && (
+                <InputRow label={t("textColor")}>
+                  <ColorInput
+                    value={field.textColor ?? "#000000"}
+                    onChange={(v) => updateField("textColor", v)}
+                  />
+                </InputRow>
+              )}
+
+              <CheckboxRow
+                label={t("border")}
+                checked={field.borderColor !== undefined}
+                onChange={(v) =>
+                  updateFieldProps(
+                    v
+                      ? { borderColor: "#000000", borderWidth: field.borderWidth ?? 1 }
+                      : { borderColor: undefined }
+                  )
+                }
+              />
+              {field.borderColor !== undefined && (
+                <>
+                  <InputRow label={t("borderColor")}>
+                    <ColorInput
+                      value={field.borderColor}
+                      onChange={(v) => updateField("borderColor", v)}
+                    />
+                  </InputRow>
+                  <InputRow label={t("borderWidth")}>
+                    <NumberInput
+                      value={field.borderWidth ?? 1}
+                      onChange={(v) => updateField("borderWidth", Math.max(0, v))}
+                      step={0.5}
+                      min={0}
+                      max={12}
+                    />
+                  </InputRow>
+                </>
+              )}
+
+              <CheckboxRow
+                label={t("background")}
+                checked={field.backgroundColor !== undefined}
+                onChange={(v) =>
+                  updateField("backgroundColor", v ? "#ffffff" : undefined)
+                }
+              />
+              {field.backgroundColor !== undefined && (
+                <InputRow label={t("backgroundColor")}>
+                  <ColorInput
+                    value={field.backgroundColor}
+                    onChange={(v) => updateField("backgroundColor", v)}
+                  />
+                </InputRow>
+              )}
+            </Accordion>
+          )}
+
           {field.type !== "image" && (
             <Accordion title={t("optionsFlags")}>
               <CheckboxRow
@@ -395,6 +520,41 @@ export default function PropertyInspector() {
                   checked={field.multiline ?? false}
                   onChange={(v) => updateField("multiline", v)}
                 />
+              )}
+              {field.type === "text" && (field.maxLength ?? 0) > 0 && (
+                <CheckboxRow
+                  label={t("comb")}
+                  checked={field.comb ?? false}
+                  onChange={(v) => updateField("comb", v)}
+                />
+              )}
+              {field.type === "dropdown" && (
+                <>
+                  <CheckboxRow
+                    label={t("editableCombo")}
+                    checked={field.editable ?? false}
+                    onChange={(v) => updateField("editable", v)}
+                  />
+                  <CheckboxRow
+                    label={t("sortOptions")}
+                    checked={field.sorted ?? false}
+                    onChange={(v) => updateField("sorted", v)}
+                  />
+                </>
+              )}
+              {field.type === "list" && (
+                <>
+                  <CheckboxRow
+                    label={t("multiselect")}
+                    checked={field.multiselect ?? false}
+                    onChange={(v) => updateField("multiselect", v)}
+                  />
+                  <CheckboxRow
+                    label={t("sortOptions")}
+                    checked={field.sorted ?? false}
+                    onChange={(v) => updateField("sorted", v)}
+                  />
+                </>
               )}
             </Accordion>
           )}

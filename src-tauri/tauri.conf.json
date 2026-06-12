@@ -1,8 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tauri-app",
+  "productName": "PDF Form Editor",
+  "mainBinaryName": "pdf-form-editor",
   "version": "0.1.0",
-  "identifier": "com.kushgene.tauri-app",
+  "identifier": "com.kushgene.pdf-form-editor",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",

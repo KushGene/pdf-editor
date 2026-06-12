@@ -20,18 +20,14 @@ jobs:
         shell: bash
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || echo "")
-          if [ -n "$PREV_TAG" ]; then
-            {
-              echo "body<<EOF"
+          {
+            echo "body<<EOF"
+            if [ -n "$PREV_TAG" ]; then
               echo "## Changes"
               echo ""
               git log --pretty=format:"- %s (%h)" ${PREV_TAG}..HEAD
               echo ""
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
-          else
-            {
-              echo "body<<EOF"
+            else
               echo "## Initial Release"
               echo ""
               echo "First public release of PDF Form Editor."
@@ -40,9 +36,14 @@ jobs:
               echo ""
               git log --pretty=format:"- %s (%h)"
               echo ""
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
-          fi
+            fi
+            echo ""
+            echo "## Linux installation notes"
+            echo ""
+            echo "- **Fedora / RHEL / openSUSE:** prefer the \`.rpm\` package."
+            echo "- **AppImage:** make it executable first (\`chmod +x\`), then run it. If it does not start, install FUSE (Fedora: \`sudo dnf install fuse\`)."
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
   build:
     needs: changelog

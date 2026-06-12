@@ -10,10 +10,16 @@ import {
   TextAlignment,
   PDFName,
   PDFString,
+  PDFHexString,
   PDFArray,
   PDFRef,
 } from "pdf-lib";
 import type { FormField } from "../types/FormField";
+import {
+  parseDaColor,
+  parseDaFontSize,
+  readWidgetAppearance,
+} from "../utils/fieldAppearance";
 
 export function useAcroFormExtractor(
   pdfBuffer: ArrayBuffer | null,
@@ -165,9 +171,18 @@ export function useAcroFormExtractor(
             let readOnly: boolean | undefined;
             let multiline: boolean | undefined;
             let fontSize = 12;
+            let textColor: string | undefined;
+            let comb: boolean | undefined;
+            let editable: boolean | undefined;
+            let sorted: boolean | undefined;
+            let multiselect: boolean | undefined;
 
             try {
-              const tu = field.acroField.dict.lookupMaybe(PDFName.of("TU"), PDFString);
+              const tu = field.acroField.dict.lookupMaybe(
+                PDFName.of("TU"),
+                PDFString,
+                PDFHexString
+              );
               if (tu) tooltip = tu.decodeText();
             } catch {
               // ignore
@@ -182,9 +197,39 @@ export function useAcroFormExtractor(
                 const sel = field.getSelected();
                 value = sel && sel.length > 0 ? sel[0] : undefined;
               } else {
-                const v = field.acroField.dict.lookupMaybe(PDFName.of("V"), PDFString);
+                const v = field.acroField.dict.lookupMaybe(
+                  PDFName.of("V"),
+                  PDFString,
+                  PDFHexString
+                );
                 if (v) value = v.decodeText();
               }
+            } catch {
+              // ignore
+            }
+
+            // Border, background and border width from the widget's MK/BS dicts
+            let borderColor: string | undefined;
+            let borderWidth: number | undefined;
+            let backgroundColor: string | undefined;
+            if (typeof (widget as any).getAppearanceCharacteristics === "function") {
+              const app = readWidgetAppearance(widget);
+              borderColor = app.borderColor;
+              borderWidth = app.borderWidth;
+              backgroundColor = app.backgroundColor;
+            }
+
+            // Default appearance (font size, text color): the widget-level DA
+            // takes precedence over the field-level DA
+            try {
+              const widgetDa =
+                typeof (widget as any).getDefaultAppearance === "function"
+                  ? (widget as any).getDefaultAppearance() ?? undefined
+                  : undefined;
+              const da = widgetDa ?? field.acroField.getDefaultAppearance() ?? undefined;
+              const size = parseDaFontSize(da);
+              if (size) fontSize = size;
+              textColor = parseDaColor(da);
             } catch {
               // ignore
             }
@@ -216,14 +261,7 @@ export function useAcroFormExtractor(
                 // ignore
               }
               try {
-                const da = field.acroField.getDefaultAppearance();
-                if (da) {
-                  const match = da.match(/\/[^\s]+\s+(\d+(?:\.\d+)?)\s*Tf/);
-                  if (match) {
-                    const fs = parseFloat(match[1]);
-                    if (fs > 0) fontSize = fs;
-                  }
-                }
+                comb = field.isCombed();
               } catch {
                 // ignore
               }
@@ -243,12 +281,24 @@ export function useAcroFormExtractor(
               } catch {
                 options = [];
               }
+              try {
+                editable = field.isEditable();
+                sorted = field.isSorted();
+              } catch {
+                // ignore
+              }
             } else if (field instanceof PDFOptionList) {
               type = "list";
               try {
                 options = field.getOptions();
               } catch {
                 options = [];
+              }
+              try {
+                multiselect = field.isMultiselect();
+                sorted = field.isSorted();
+              } catch {
+                // ignore
               }
             } else if (field instanceof PDFSignature) {
               type = "signature";
@@ -275,6 +325,14 @@ export function useAcroFormExtractor(
               maxLength,
               readOnly,
               multiline,
+              textColor,
+              borderColor,
+              borderWidth,
+              backgroundColor,
+              comb,
+              editable,
+              sorted,
+              multiselect,
               widgetIndex: wi,
               origValue: value,
               origX: rect.x,
@@ -301,5 +359,5 @@ export function useAcroFormExtractor(
     return () => {
       cancelled = true;
     };
-  }, [pdfBuffer, setFormFields]);
+  }, [pdfBuffer, setFormFields, setLoadedFieldNames]);
 }

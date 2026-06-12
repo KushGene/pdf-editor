@@ -4,6 +4,7 @@ import TopBar from "./components/TopBar";
 import CanvasWorkspace from "./components/CanvasWorkspace";
 import PropertyInspector from "./components/PropertyInspector";
 import BottomBar from "./components/BottomBar";
+import SignatureDialog from "./components/SignatureDialog";
 import { useWorkspace } from "./context/WorkspaceContext";
 import type { FormField } from "./types/FormField";
 import "./App.css";
@@ -139,6 +140,7 @@ function App() {
         <PropertyInspector />
       </div>
       <BottomBar />
+      <SignatureDialog />
       <KeyboardShortcuts />
     </div>
   );

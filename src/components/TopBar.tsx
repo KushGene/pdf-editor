@@ -2,6 +2,7 @@ import {
   FolderOpen,
   Save,
   SaveAll,
+  FileDown,
   MousePointer2,
   Hand,
   Type,
@@ -17,13 +18,16 @@ import {
   Loader2,
   Undo2,
   Redo2,
+  Download,
 } from "lucide-react";
 import { useState } from "react";
 import { open, save, message } from "@tauri-apps/plugin-dialog";
 import { readFile, writeFile } from "@tauri-apps/plugin-fs";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTranslation } from "react-i18next";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { buildPdfBytes } from "../utils/buildPdfBytes";
+import { useUpdateCheck, RELEASES_PAGE } from "../hooks/useUpdateCheck";
 import type { ToolType } from "../context/WorkspaceContext";
 
 const TOOLS: { key: ToolType; icon: React.ReactNode; labelKey: string }[] = [
@@ -61,6 +65,7 @@ export default function TopBar() {
     redo,
   } = useWorkspace();
   const [isSaving, setIsSaving] = useState(false);
+  const { version, latestVersion, updateAvailable } = useUpdateCheck();
 
   async function handleOpenPdf() {
     const selected = await open({
@@ -129,6 +134,30 @@ export default function TopBar() {
     if (chosen) {
       await writeFile(chosen, bytes);
       setFilePath(chosen);
+    }
+  }
+
+  /** Export a static copy: all field values drawn into the page content, form removed. */
+  async function handleExportFlattened() {
+    if (!pdfBuffer || isSaving) return;
+    setIsSaving(true);
+    try {
+      const bytes = await buildPdfBytes(pdfBuffer, formFields, loadedFieldNames, {
+        flatten: true,
+      });
+      const chosen = await save({
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+        defaultPath: filePath ? filePath.replace(/\.pdf$/i, "_flat.pdf") : undefined,
+      });
+      // Intentionally do not setFilePath: "Save" must keep writing the form version
+      if (chosen) await writeFile(chosen, bytes);
+    } catch (err) {
+      await message(
+        `${t("saveError")}:\n${err instanceof Error ? err.message : String(err)}`,
+        { title: t("error"), kind: "error" }
+      );
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -287,6 +316,35 @@ export default function TopBar() {
 
       <div style={{ flex: 1 }} />
 
+      {updateAvailable && (
+        <button
+          onClick={() => openUrl(RELEASES_PAGE)}
+          title={t("updateAvailableTitle", { version: latestVersion })}
+          style={{
+            height: "28px",
+            padding: "0 0.6rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.3rem",
+            backgroundColor: "#16a34a",
+            color: "#ffffff",
+            borderColor: "#16a34a",
+          }}
+        >
+          <Download size={14} />
+          <span style={{ fontSize: "0.8rem" }}>{t("updateAvailable")}</span>
+        </button>
+      )}
+
+      {version && (
+        <span
+          title={t("currentVersion")}
+          style={{ fontSize: "0.75rem", color: "#858585" }}
+        >
+          v{version}
+        </span>
+      )}
+
       <select
         value={i18n.language}
         onChange={(e) => i18n.changeLanguage(e.target.value)}
@@ -325,6 +383,16 @@ export default function TopBar() {
       >
         {isSaving ? <Loader2 size={14} className="spin" /> : <SaveAll size={14} />}
         <span style={{ fontSize: "0.8rem" }}>Unter…</span>
+      </button>
+
+      <button
+        onClick={handleExportFlattened}
+        disabled={!pdfBuffer || isSaving}
+        title={t("exportFlatTitle")}
+        style={{ height: "28px", padding: "0 0.6rem", display: "flex", alignItems: "center", gap: "0.3rem" }}
+      >
+        {isSaving ? <Loader2 size={14} className="spin" /> : <FileDown size={14} />}
+        <span style={{ fontSize: "0.8rem" }}>{t("exportFlat")}</span>
       </button>
     </header>
   );

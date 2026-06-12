@@ -30,6 +30,8 @@ interface WorkspaceState {
   clipboardField: FormField | null;
   canUndo: boolean;
   canRedo: boolean;
+  /** Field id for which the signature capture dialog is open. */
+  signatureFieldId: string | null;
   setPdfBuffer: (buffer: ArrayBuffer | null) => void;
   setFilePath: (path: string | null) => void;
   setLoadedFieldNames: (names: Set<string>) => void;
@@ -40,6 +42,7 @@ interface WorkspaceState {
   setPanOffset: Dispatch<SetStateAction<{ x: number; y: number }>>;
   setPreviewMode: (mode: boolean) => void;
   setClipboardField: (field: FormField | null) => void;
+  setSignatureFieldId: (id: string | null) => void;
   pushHistory: () => void;
   undo: () => void;
   redo: () => void;
@@ -58,6 +61,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [previewMode, setPreviewMode] = useState(false);
   const [clipboardField, setClipboardField] = useState<FormField | null>(null);
+  const [signatureFieldId, setSignatureFieldId] = useState<string | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
 
@@ -170,6 +174,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         clipboardField,
         canUndo,
         canRedo,
+        signatureFieldId,
         setPdfBuffer: wrappedSetPdfBuffer,
         setFilePath,
         setLoadedFieldNames,
@@ -180,6 +185,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         setPanOffset,
         setPreviewMode,
         setClipboardField,
+        setSignatureFieldId,
         pushHistory,
         undo,
         redo,

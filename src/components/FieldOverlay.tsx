@@ -25,7 +25,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 }
 
 export default function FieldOverlay({ pageNumber, width, height }: FieldOverlayProps) {
-  const { formFields, selectedFieldId, setSelectedFieldId, setFormFields, activeTool, previewMode, scale, pushHistory } = useWorkspace();
+  const { formFields, selectedFieldId, setSelectedFieldId, setFormFields, setSignatureFieldId, activeTool, previewMode, scale, pushHistory } = useWorkspace();
   const [guidelines, setGuidelines] = useState<GuideLine[]>([]);
   const [altKeyHeld, setAltKeyHeld] = useState(false);
   const transformerRef = useRef<Konva.Transformer>(null);
@@ -40,16 +40,20 @@ export default function FieldOverlay({ pageNumber, width, height }: FieldOverlay
 
 
 
-  // Preload images for image stamps
+  // Preload images for image stamps and captured signatures
   useEffect(() => {
     pageFields.forEach((field) => {
-      if (field.type === "image" && field.imageSrc && !imageCache.current.has(field.id)) {
+      if ((field.type === "image" || field.type === "signature") && field.imageSrc) {
+        const cached = imageCache.current.get(field.id);
+        if (cached && cached.src === field.imageSrc) return;
         const img = new window.Image();
         img.onload = () => {
           imageCache.current.set(field.id, img);
           setImageVersion((v) => v + 1);
         };
         img.src = field.imageSrc;
+      } else {
+        imageCache.current.delete(field.id);
       }
     });
   }, [pageFields]);
@@ -307,10 +311,30 @@ export default function FieldOverlay({ pageNumber, width, height }: FieldOverlay
         const pointer = stage.getPointerPosition();
         if (!pointer) return;
 
-        const defaults: Record<string, { width: number; height: number; name: string; type: FormField["type"] }> = {
-          add_text: { width: 100, height: 20, name: "New Text Field", type: "text" },
-          add_checkbox: { width: 20, height: 20, name: "New Checkbox", type: "checkbox" },
-          add_dropdown: { width: 120, height: 24, name: "New Dropdown", type: "dropdown" },
+        const defaults: Record<
+          string,
+          { width: number; height: number; name: string; type: FormField["type"] } & Partial<FormField>
+        > = {
+          // Text fields get no border so they blend into existing documents;
+          // checkboxes and dropdowns get a thin border so they stay visible.
+          add_text: { width: 100, height: 20, name: "New Text Field", type: "text", textColor: "#000000" },
+          add_checkbox: {
+            width: 20,
+            height: 20,
+            name: "New Checkbox",
+            type: "checkbox",
+            borderColor: "#000000",
+            borderWidth: 1,
+          },
+          add_dropdown: {
+            width: 120,
+            height: 24,
+            name: "New Dropdown",
+            type: "dropdown",
+            textColor: "#000000",
+            borderColor: "#000000",
+            borderWidth: 1,
+          },
           add_signature: { width: 150, height: 50, name: "New Signature", type: "signature" },
         };
 
@@ -320,15 +344,12 @@ export default function FieldOverlay({ pageNumber, width, height }: FieldOverlay
         const newField: FormField = {
           id: crypto.randomUUID(),
           pageNumber,
-          name: def.name,
-          type: def.type,
           x: pointer.x,
           y: pointer.y,
-          width: def.width,
-          height: def.height,
           required: false,
           fontSize: 12,
           widgetIndex: 0,
+          ...def,
         };
 
         pushHistory();
@@ -366,35 +387,42 @@ export default function FieldOverlay({ pageNumber, width, height }: FieldOverlay
             const elements: React.ReactNode[] = [];
 
             if (!previewMode) {
-              if (field.type === "image") {
-                const img = imageCache.current.get(field.id);
-                if (img) {
-                  elements.push(
-                    <KonvaImage
-                      key={field.id}
-                      id={field.id}
-                      x={x}
-                      y={y}
-                      width={w}
-                      height={h}
-                      image={img}
-                      draggable={canInteract}
-                      listening={!isPan && !previewMode}
-                      stroke={isSelected ? "rgba(59, 130, 246, 0.8)" : undefined}
-                      strokeWidth={isSelected ? 2 : 0}
-                      onClick={() => handleFieldClick(field.id)}
-                      onTap={() => handleFieldClick(field.id)}
-                      onDragMove={(e) => handleDragMove(e, field)}
-                      onDragEnd={(e) => handleDragEnd(e, field)}
-                      onTransformEnd={(e) => handleTransformEnd(e, field)}
-                      ref={(node) => {
-                        if (node) nodeRefs.current.set(field.id, node);
-                        else nodeRefs.current.delete(field.id);
-                      }}
-                    />
-                  );
-                }
-              } else {
+              const stampImage =
+                (field.type === "image" || field.type === "signature") && field.imageSrc
+                  ? imageCache.current.get(field.id)
+                  : undefined;
+              const openSignature =
+                field.type === "signature" && canInteract
+                  ? () => setSignatureFieldId(field.id)
+                  : undefined;
+              if (stampImage) {
+                elements.push(
+                  <KonvaImage
+                    key={field.id}
+                    id={field.id}
+                    x={x}
+                    y={y}
+                    width={w}
+                    height={h}
+                    image={stampImage}
+                    draggable={canInteract}
+                    listening={!isPan && !previewMode}
+                    stroke={isSelected ? "rgba(59, 130, 246, 0.8)" : undefined}
+                    strokeWidth={isSelected ? 2 : 0}
+                    onClick={() => handleFieldClick(field.id)}
+                    onTap={() => handleFieldClick(field.id)}
+                    onDblClick={openSignature}
+                    onDblTap={openSignature}
+                    onDragMove={(e) => handleDragMove(e, field)}
+                    onDragEnd={(e) => handleDragEnd(e, field)}
+                    onTransformEnd={(e) => handleTransformEnd(e, field)}
+                    ref={(node) => {
+                      if (node) nodeRefs.current.set(field.id, node);
+                      else nodeRefs.current.delete(field.id);
+                    }}
+                  />
+                );
+              } else if (field.type !== "image") {
                 const sw = isSelected
                   ? Math.max(0.4, 1.5 / scale)
                   : Math.max(0.3, 0.8 / scale);
@@ -413,6 +441,8 @@ export default function FieldOverlay({ pageNumber, width, height }: FieldOverlay
                     fill={isSelected ? "rgba(59, 130, 246, 0.12)" : "rgba(59, 130, 246, 0.08)"}
                     onClick={() => handleFieldClick(field.id)}
                     onTap={() => handleFieldClick(field.id)}
+                    onDblClick={openSignature}
+                    onDblTap={openSignature}
                     onDragMove={(e) => handleDragMove(e, field)}
                     onDragEnd={(e) => handleDragEnd(e, field)}
                     onTransformEnd={(e) => handleTransformEnd(e, field)}
