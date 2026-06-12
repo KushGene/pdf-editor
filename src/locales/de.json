@@ -36,6 +36,7 @@
   "alignLeft": "Links",
   "alignCenter": "Zentriert",
   "alignRight": "Rechts",
+  "deletePage": "Seite löschen",
   "fieldsLoaded": "{{count}} Feld(er) geladen",
   "selectFieldHint": "Wähle ein Feld aus, um seine Eigenschaften zu bearbeiten.",
   "noPdfLoaded": "Kein PDF geladen. Klicke auf \"PDF öffnen\" um zu beginnen.",

@@ -159,7 +159,11 @@ export function useAcroFormExtractor(
             if (pageIndex === -1) continue;
 
             const page = pages[pageIndex];
-            const pageSize = page.getSize();
+            // Use getMediaBox() so that pages with a non-zero origin
+            // (e.g. MediaBox [-8.4, 8.4, 586.8, 850.1]) are handled correctly.
+            // page.getSize() returns only width/height (without the origin offset),
+            // which causes all fields to shift by exactly mediaBox.y / mediaBox.x.
+            const mediaBox = page.getMediaBox();
 
             let type: FormField["type"];
             let options: string[] | undefined;
@@ -306,13 +310,16 @@ export function useAcroFormExtractor(
               continue;
             }
 
-            const editorY = pageSize.height - rect.y - rect.height;
+            // Convert from PDF user space (bottom-left origin, may have non-zero
+            // MediaBox origin) to editor space (top-left origin, 0-based).
+            const editorX = rect.x - mediaBox.x;
+            const editorY = (mediaBox.y + mediaBox.height) - rect.y - rect.height;
             extracted.push({
               id: crypto.randomUUID(),
               pageNumber: pageIndex + 1,
               name: field.getName(),
               type,
-              x: rect.x,
+              x: editorX,
               y: editorY,
               width: rect.width,
               height: rect.height,
@@ -335,7 +342,7 @@ export function useAcroFormExtractor(
               multiselect,
               widgetIndex: wi,
               origValue: value,
-              origX: rect.x,
+              origX: editorX,
               origY: editorY,
               origWidth: rect.width,
               origHeight: rect.height,

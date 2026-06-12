@@ -7,6 +7,7 @@ export type ToolType = "pan" | "select" | "add_text" | "add_checkbox" | "add_dro
 
 interface HistoryEntry {
   formFields: FormField[];
+  deletedPages: number[];
 }
 
 /** Deep-clone a FormField so nested arrays (options) are not shared by reference. */
@@ -32,6 +33,7 @@ interface WorkspaceState {
   canRedo: boolean;
   /** Field id for which the signature capture dialog is open. */
   signatureFieldId: string | null;
+  deletedPages: number[];
   setPdfBuffer: (buffer: ArrayBuffer | null) => void;
   setFilePath: (path: string | null) => void;
   setLoadedFieldNames: (names: Set<string>) => void;
@@ -43,6 +45,7 @@ interface WorkspaceState {
   setPreviewMode: (mode: boolean) => void;
   setClipboardField: (field: FormField | null) => void;
   setSignatureFieldId: (id: string | null) => void;
+  deletePage: (pageNumber: number) => void;
   pushHistory: () => void;
   undo: () => void;
   redo: () => void;
@@ -64,10 +67,13 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [signatureFieldId, setSignatureFieldId] = useState<string | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  const [deletedPages, setDeletedPages] = useState<number[]>([]);
 
   // Internal refs for undo/redo
   const formFieldsRef = useRef(formFields);
   formFieldsRef.current = formFields;
+  const deletedPagesRef = useRef(deletedPages);
+  deletedPagesRef.current = deletedPages;
 
   const historyRef = useRef<HistoryEntry[]>([]);
   const historyIndexRef = useRef(-1);
@@ -85,6 +91,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
     const entry: HistoryEntry = {
       formFields: formFieldsRef.current.map(cloneField),
+      deletedPages: [...deletedPagesRef.current],
     };
 
     const next = historyRef.current.slice(0, historyIndexRef.current + 1);
@@ -104,6 +111,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       historyIndexRef.current -= 1;
       const entry = historyRef.current[historyIndexRef.current];
       _setFormFields(entry.formFields.map(cloneField));
+      setDeletedPages(entry.deletedPages);
       updateHistoryButtons();
     } finally {
       isUndoingRef.current = false;
@@ -118,6 +126,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       historyIndexRef.current += 1;
       const entry = historyRef.current[historyIndexRef.current];
       _setFormFields(entry.formFields.map(cloneField));
+      setDeletedPages(entry.deletedPages);
       updateHistoryButtons();
     } finally {
       isUndoingRef.current = false;
@@ -133,6 +142,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       historyIndexRef.current = -1;
       setCanUndo(false);
       setCanRedo(false);
+      setDeletedPages([]);
     }
   }, []);
 
@@ -149,6 +159,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         isInitialLoadRef.current = false;
         historyRef.current = [{
           formFields: next.map(cloneField),
+          deletedPages: [],
         }];
         historyIndexRef.current = 0;
         setCanUndo(false);
@@ -158,6 +169,21 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
+
+  const deletePage = useCallback((pageNumber: number) => {
+    pushHistory();
+    setDeletedPages((prev) => {
+      if (prev.includes(pageNumber)) return prev;
+      return [...prev, pageNumber].sort((a, b) => a - b);
+    });
+    // Deselect fields on deleted page
+    _setSelectedFieldId((prevId) => {
+      if (!prevId) return null;
+      const field = formFieldsRef.current.find((f) => f.id === prevId);
+      if (field && field.pageNumber === pageNumber) return null;
+      return prevId;
+    });
+  }, [pushHistory]);
 
   return (
     <WorkspaceContext.Provider
@@ -175,6 +201,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         canUndo,
         canRedo,
         signatureFieldId,
+        deletedPages,
         setPdfBuffer: wrappedSetPdfBuffer,
         setFilePath,
         setLoadedFieldNames,
@@ -186,6 +213,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         setPreviewMode,
         setClipboardField,
         setSignatureFieldId,
+        deletePage,
         pushHistory,
         undo,
         redo,

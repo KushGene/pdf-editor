@@ -36,6 +36,7 @@
   "alignLeft": "Gauche",
   "alignCenter": "Centré",
   "alignRight": "Droite",
+  "deletePage": "Supprimer la page",
   "fieldsLoaded": "{{count}} champ(s) chargé(s)",
   "selectFieldHint": "Sélectionnez un champ pour modifier ses propriétés.",
   "noPdfLoaded": "Aucun PDF chargé. Cliquez sur \"Ouvrir PDF\" pour commencer.",

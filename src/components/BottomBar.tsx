@@ -1,9 +1,15 @@
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useWorkspace } from "../context/WorkspaceContext";
 
 export default function BottomBar() {
   const { t } = useTranslation();
-  const { formFields } = useWorkspace();
+  const { formFields, deletedPages } = useWorkspace();
+
+  const visibleFields = useMemo(
+    () => formFields.filter((f) => !deletedPages.includes(f.pageNumber)),
+    [formFields, deletedPages]
+  );
 
   return (
     <div
@@ -20,7 +26,7 @@ export default function BottomBar() {
         gap: "1rem",
       }}
     >
-      <span>{t("fieldsLoaded", { count: formFields.length })}</span>
+      <span>{t("fieldsLoaded", { count: visibleFields.length })}</span>
     </div>
   );
 }

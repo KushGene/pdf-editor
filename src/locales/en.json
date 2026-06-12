@@ -36,6 +36,7 @@
   "alignLeft": "Left",
   "alignCenter": "Center",
   "alignRight": "Right",
+  "deletePage": "Delete page",
   "fieldsLoaded": "{{count}} field(s) loaded",
   "selectFieldHint": "Select a field to edit its properties.",
   "noPdfLoaded": "No PDF loaded. Click \"Open PDF\" to begin.",

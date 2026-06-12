@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import "pdfjs-dist/legacy/web/pdf_viewer.css";
 import "../utils/pdfjsConfig";
 import { useTranslation } from "react-i18next";
+import { Trash2 } from "lucide-react";
 import { useWorkspace } from "../context/WorkspaceContext";
 import { useAcroFormExtractor } from "../hooks/useAcroFormExtractor";
 import PdfPageCanvas from "./PdfPageCanvas";
@@ -17,6 +18,9 @@ interface PageContainerProps {
 
 function PageContainer({ pdfDocument, pageNumber }: PageContainerProps) {
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const [hovered, setHovered] = useState(false);
+  const { deletePage } = useWorkspace();
+  const { t } = useTranslation();
 
   const handleViewportCalculated = useCallback((w: number, h: number) => {
     setViewportSize({ width: w, height: h });
@@ -24,6 +28,8 @@ function PageContainer({ pdfDocument, pageNumber }: PageContainerProps) {
 
   return (
     <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       style={{
         position: "relative",
         width: viewportSize.width > 0 ? `${viewportSize.width}px` : undefined,
@@ -55,6 +61,32 @@ function PageContainer({ pdfDocument, pageNumber }: PageContainerProps) {
           />
         </div>
       )}
+      {hovered && (
+        <button
+          onClick={() => deletePage(pageNumber)}
+          title={`${t("deletePage")} ${pageNumber}`}
+          style={{
+            position: "absolute",
+            top: 4,
+            right: 4,
+            width: 24,
+            height: 24,
+            padding: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: "rgba(239, 68, 68, 0.9)",
+            color: "#fff",
+            border: "none",
+            borderRadius: 4,
+            cursor: "pointer",
+            zIndex: 10,
+            opacity: 0.9,
+          }}
+        >
+          <Trash2 size={14} />
+        </button>
+      )}
     </div>
   );
 }
@@ -71,6 +103,7 @@ export default function CanvasWorkspace() {
     panOffset,
     setPanOffset,
     previewMode,
+    deletedPages,
   } = useWorkspace();
 
   const [pdfDocument, setPdfDocument] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -112,26 +145,13 @@ export default function CanvasWorkspace() {
       stopAtErrors: false,
     });
 
-    loadingTask.promise.then(async (doc) => {
-      if (cancelled) { loadingTask.destroy(); return; }
-
-      const numPages = Math.min(doc.numPages, 5);
-      const viewports = await Promise.all(
-        Array.from({ length: numPages }, (_, i) =>
-          doc.getPage(i + 1).then((p) => p.getViewport({ scale: 1 }))
-        )
-      );
-      const maxW = Math.max(...viewports.map((v) => v.width));
-      // padding: 32px on all sides → +64 horiz, +64 vert; gaps between pages = (n-1)*32
-      const totalH =
-        viewports.reduce((s, v) => s + v.height, 0) +
-        (numPages - 1) * 32 +
-        64;
-
-      docSizeRef.current = { width: maxW + 64, height: totalH };
-
+    loadingTask.promise.then((doc) => {
+      if (cancelled) return;
+      console.log("[pdf] document loaded, pages:", doc.numPages);
       setPdfDocument(doc);
-      setPageCount(numPages);
+    }).catch((err) => {
+      if (cancelled) return; // destroyed by cleanup – expected
+      console.error("[pdf] failed to load document:", err);
     });
 
     return () => {
@@ -139,6 +159,41 @@ export default function CanvasWorkspace() {
       loadingTask.destroy();
     };
   }, [pdfBuffer]);
+
+  // ─── Recalculate visible pages and document size ─────────────────────────────
+  useEffect(() => {
+    if (!pdfDocument) {
+      setPageCount(0);
+      docSizeRef.current = { width: 0, height: 0 };
+      return;
+    }
+
+    let cancelled = false;
+    const allPages = Array.from({ length: pdfDocument.numPages }, (_, i) => i + 1);
+    const visiblePages = allPages.filter((p) => !deletedPages.includes(p));
+
+    Promise.all(
+      visiblePages.map((pn) =>
+        pdfDocument.getPage(pn).then((p) => p.getViewport({ scale: 1 }))
+      )
+    ).then((viewports) => {
+      if (cancelled) return;
+      const maxW = Math.max(...viewports.map((v) => v.width), 0);
+      const totalH =
+        visiblePages.length === 0
+          ? 0
+          : viewports.reduce((s, v) => s + v.height, 0) +
+            (visiblePages.length - 1) * 32 +
+            64;
+
+      docSizeRef.current = { width: maxW + 64, height: totalH };
+      setPageCount(visiblePages.length);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pdfDocument, deletedPages]);
 
   // ─── ResizeObserver – measure container, centre on first load ────────────────
   useEffect(() => {
@@ -300,6 +355,15 @@ export default function CanvasWorkspace() {
     };
   }, [activeTool, previewMode, clamp, setPanOffset]);
 
+  const pageElements = useMemo(() => {
+    if (!pdfDocument) return null;
+    const allPages = Array.from({ length: pdfDocument.numPages }, (_, i) => i + 1);
+    const visiblePages = allPages.filter((p) => !deletedPages.includes(p));
+    return visiblePages.map((pn) => (
+      <PageContainer key={pn} pdfDocument={pdfDocument} pageNumber={pn} />
+    ));
+  }, [pdfDocument, deletedPages]);
+
   return (
     <div
       ref={containerRef}
@@ -325,13 +389,7 @@ export default function CanvasWorkspace() {
             willChange: "transform",
           }}
         >
-          {Array.from({ length: pageCount }, (_, i) => (
-            <PageContainer
-              key={i + 1}
-              pdfDocument={pdfDocument}
-              pageNumber={i + 1}
-            />
-          ))}
+          {pageElements}
         </div>
       ) : (
         <div

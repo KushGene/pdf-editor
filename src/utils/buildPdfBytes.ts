@@ -253,11 +253,34 @@ export async function buildPdfBytes(
   pdfBuffer: ArrayBuffer,
   formFields: FormField[],
   loadedFieldNames: Set<string>,
+  deletedPages: number[] = [],
   options: BuildPdfOptions = {}
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(new Uint8Array(pdfBuffer.slice(0)));
+
+  // Remove deleted pages in descending order to preserve indices
+  const sortedDeleted = [...deletedPages].sort((a, b) => b - a);
+  for (const pageNum of sortedDeleted) {
+    const idx = pageNum - 1;
+    if (idx >= 0 && idx < pdfDoc.getPageCount()) {
+      try {
+        pdfDoc.removePage(idx);
+      } catch (err) {
+        warn(`could not remove page ${pageNum}`, err);
+      }
+    }
+  }
+
   const form = pdfDoc.getForm();
   const pages = pdfDoc.getPages();
+
+  const deletedSet = new Set(deletedPages);
+  const pageOffset = (pageNumber: number) =>
+    deletedPages.filter((dp) => dp < pageNumber).length;
+
+  const workingFields = formFields
+    .filter((f) => !deletedSet.has(f.pageNumber))
+    .map((f) => ({ ...f, pageNumber: f.pageNumber - pageOffset(f.pageNumber) }));
 
   const allFields = form.getFields();
   const pdfFieldByName = new Map(allFields.map((f) => [f.getName(), f]));
@@ -272,12 +295,15 @@ export async function buildPdfBytes(
   const toRect = (ef: FormField) => {
     const page = pages[ef.pageNumber - 1];
     if (!page) return null;
-    const { height: ph } = page.getSize();
-    const y = ph - ef.y - ef.height;
+    // Reverse of the extraction transform: editor space → PDF user space.
+    // Must account for non-zero MediaBox origin (e.g. [-8.4, 8.4, 586.8, 850.1]).
+    const mb = page.getMediaBox();
+    const pdfX = ef.x + mb.x;
+    const pdfY = (mb.y + mb.height) - ef.y - ef.height;
     return {
       page,
-      r: { x: ef.x, y, width: ef.width, height: ef.height },
-      raw: [ef.x, y, ef.x + ef.width, y + ef.height] as number[],
+      r: { x: pdfX, y: pdfY, width: ef.width, height: ef.height },
+      raw: [pdfX, pdfY, pdfX + ef.width, pdfY + ef.height] as number[],
     };
   };
 
@@ -287,7 +313,7 @@ export async function buildPdfBytes(
   const byOrigName = new Map<string, FormField[]>();
   const keptOrigNames = new Set<string>();
 
-  for (const ef of formFields) {
+  for (const ef of workingFields) {
     if (ef.origName) {
       const list = byOrigName.get(ef.origName) ?? [];
       list.push(ef);
@@ -306,14 +332,14 @@ export async function buildPdfBytes(
   for (const pdfField of snapshot) {
     const name = pdfField.getName();
     if (!loadedFieldNames.has(name)) continue;
-    if (!formFields.some((ef) => ef.origName === name)) deletedOrigNames.add(name);
+    if (!workingFields.some((ef) => ef.origName === name)) deletedOrigNames.add(name);
   }
 
   const phase2SeenIndices = new Map<string, Set<number>>();
   const forcedPhase3Ids = new Set<string>();
 
   // PHASE 2 – update kept fields in place
-  for (const ef of formFields) {
+  for (const ef of workingFields) {
     if (ef.type === "image" || ef.type === "signature") continue;
     if (ef.origName === undefined) continue;
     if (!keptOrigNames.has(ef.origName)) continue;
@@ -416,7 +442,7 @@ export async function buildPdfBytes(
 
   // PHASE 3 – create, rename or re-type fields
   const byTargetName = new Map<string, FormField[]>();
-  for (const ef of formFields) {
+  for (const ef of workingFields) {
     if (ef.type === "image" || ef.type === "signature") continue;
     if (ef.origName !== undefined && keptOrigNames.has(ef.origName) && !forcedPhase3Ids.has(ef.id)) continue;
     const list = byTargetName.get(ef.name) ?? [];
@@ -594,18 +620,18 @@ export async function buildPdfBytes(
     }
   }
   // Remove old signature widgets that are being replaced by drawn images
-  for (const ef of formFields) {
+  for (const ef of workingFields) {
     if (ef.type !== "signature" || !ef.origName || !ef.imageSrc) continue;
     const sourceField = pdfFieldByName.get(ef.origName);
     if (sourceField) safelyRemoveField(sourceField, pdfDoc);
   }
 
-  for (const field of formFields) {
+  for (const field of workingFields) {
     if ((field.type !== "image" && field.type !== "signature") || !field.imageSrc) continue;
     try {
       const page = pages[field.pageNumber - 1];
       if (!page) continue;
-      const { height: ph } = page.getSize();
+      const mb = page.getMediaBox();
       const b64 = field.imageSrc.split(",")[1];
       if (!b64) continue;
       const imgBytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
@@ -613,8 +639,8 @@ export async function buildPdfBytes(
         ? await pdfDoc.embedPng(imgBytes)
         : await pdfDoc.embedJpg(imgBytes);
       page.drawImage(img, {
-        x: field.x,
-        y: ph - field.y - field.height,
+        x: field.x + mb.x,
+        y: (mb.y + mb.height) - field.y - field.height,
         width: field.width,
         height: field.height,
       });

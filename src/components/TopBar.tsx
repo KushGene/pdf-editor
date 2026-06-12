@@ -63,6 +63,7 @@ export default function TopBar() {
     pushHistory,
     undo,
     redo,
+    deletedPages,
   } = useWorkspace();
   const [isSaving, setIsSaving] = useState(false);
   const { version, latestVersion, updateAvailable } = useUpdateCheck();
@@ -74,11 +75,14 @@ export default function TopBar() {
     });
     if (selected === null) return;
     const path = typeof selected === "string" ? selected : selected[0];
+    console.log("[open] reading file:", path);
     const bytes = await readFile(path);
+    console.log("[open] bytes read:", bytes.byteLength, "byteOffset:", bytes.byteOffset);
     const buffer = bytes.buffer.slice(
       bytes.byteOffset,
       bytes.byteOffset + bytes.byteLength
     );
+    console.log("[open] buffer byteLength:", buffer.byteLength);
     setPdfBuffer(buffer);
     setFilePath(path);
   }
@@ -88,7 +92,7 @@ export default function TopBar() {
     if (!pdfBuffer || isSaving) return;
     setIsSaving(true);
     try {
-      const bytes = await buildPdfBytes(pdfBuffer, formFields, loadedFieldNames);
+      const bytes = await buildPdfBytes(pdfBuffer, formFields, loadedFieldNames, deletedPages);
       if (filePath) {
         // Backup before overwriting
         try {
@@ -117,7 +121,7 @@ export default function TopBar() {
     if (!pdfBuffer || isSaving) return;
     setIsSaving(true);
     try {
-      const bytes = await buildPdfBytes(pdfBuffer, formFields, loadedFieldNames);
+      const bytes = await buildPdfBytes(pdfBuffer, formFields, loadedFieldNames, deletedPages);
       await handleSaveAsCore(bytes);
     } catch (err) {
       await message(
@@ -142,7 +146,7 @@ export default function TopBar() {
     if (!pdfBuffer || isSaving) return;
     setIsSaving(true);
     try {
-      const bytes = await buildPdfBytes(pdfBuffer, formFields, loadedFieldNames, {
+      const bytes = await buildPdfBytes(pdfBuffer, formFields, loadedFieldNames, deletedPages, {
         flatten: true,
       });
       const chosen = await save({
