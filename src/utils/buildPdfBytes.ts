@@ -13,6 +13,8 @@ import {
   PDFDict,
   PDFRef,
   PDFObject,
+  PDFRawStream,
+  PDFStream,
 } from "pdf-lib";
 import type { PDFField, PDFWidgetAnnotation } from "pdf-lib";
 import type { FormField } from "../types/FormField";
@@ -97,6 +99,27 @@ function safelyRemoveField(pdfField: PDFField, pdfDoc: PDFDocument) {
     }
   } catch (err) {
     warn(`could not remove field "${pdfField.getName()}"`, err);
+  }
+}
+
+/**
+ * pdf-lib's save() writes old object streams as-is. Objects deleted from
+ * the context (e.g. by removePage) are still present inside those streams,
+ * so they survive in the output. Deleting the old streams forces pdf-lib to
+ * rebuild them from the current indirectObjects, producing a clean file.
+ */
+function purgeOldObjectStreams(pdfDoc: PDFDocument) {
+  try {
+    for (const [ref, obj] of pdfDoc.context.enumerateIndirectObjects()) {
+      if (obj instanceof PDFRawStream || obj instanceof PDFStream) {
+        const type = obj.dict.lookup(PDFName.of("Type"));
+        if (type === PDFName.of("ObjStm")) {
+          pdfDoc.context.delete(ref);
+        }
+      }
+    }
+  } catch {
+    // Best-effort cleanup.
   }
 }
 
@@ -830,9 +853,11 @@ export async function buildPdfBytes(
         if (!(dict instanceof PDFDict)) annots.remove(i);
       }
     }
+    purgeOldObjectStreams(pdfDoc);
     return pdfDoc.save();
   }
 
+  purgeOldObjectStreams(pdfDoc);
   acroForm.dict.set(PDFName.of("NeedAppearances"), pdfDoc.context.obj(true));
   return pdfDoc.save({ updateFieldAppearances: false });
 }
