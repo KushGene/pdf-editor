@@ -104,6 +104,10 @@ function safelyRemoveField(pdfField: PDFField, pdfDoc: PDFDocument) {
  * Detach a field from its parent hierarchy and promote it to a top-level
  * AcroForm field. This is needed when renaming hierarchical fields (e.g.
  * "9.1.6832" → "Foo") so the old parent prefixes are not prepended.
+ *
+ * After removing the field from its parent we also clean up any intermediate
+ * container nodes that have become empty so they are not mis-identified as
+ * terminal fields by pdf-lib (which throws when they lack /FT).
  */
 function detachFromParentHierarchy(field: PDFField, pdfDoc: PDFDocument) {
   try {
@@ -127,9 +131,51 @@ function detachFromParentHierarchy(field: PDFField, pdfDoc: PDFDocument) {
     const fieldsArr = acroForm.dict.lookupMaybe(PDFName.of("Fields"), PDFArray);
     if (fieldsArr) fieldsArr.push(fieldRef);
     else acroForm.dict.set(PDFName.of("Fields"), pdfDoc.context.obj([fieldRef]));
+
+    // Clean up empty intermediate containers so they do not survive as
+    // terminal fields without /FT.
+    pruneEmptyContainer(parentDict, pdfDoc);
   } catch (err) {
     warn(`could not detach field "${field.getName()}" from parent hierarchy`, err);
   }
+}
+
+/**
+ * Remove a container node that has become empty (no /FT, no /Kids).
+ * Recursively cleans up the grand-parent chain as well.
+ */
+function pruneEmptyContainer(nodeDict: PDFDict, pdfDoc: PDFDocument) {
+  const kids = nodeDict.lookupMaybe(PDFName.of("Kids"), PDFArray);
+  if (kids && kids.size() === 0) {
+    nodeDict.delete(PDFName.of("Kids"));
+  }
+  // A container has no /FT of its own. If it also has no /Kids it is useless
+  // and must not be treated as a terminal field by pdf-lib.
+  if (nodeDict.has(PDFName.of("FT"))) return;
+  if (nodeDict.has(PDFName.of("Kids"))) return;
+
+  const nodeRef = pdfDoc.context.getObjectRef(nodeDict);
+  if (!nodeRef) return;
+
+  // Remove from AcroForm.Fields
+  const acroForm = pdfDoc.catalog.getOrCreateAcroForm();
+  removeRefFromArray(acroForm.dict, "Fields", nodeRef);
+
+  // Remove from its own parent's Kids
+  if (nodeDict.has(PDFName.of("Parent"))) {
+    const grandParentEntry = nodeDict.get(PDFName.of("Parent"));
+    if (grandParentEntry instanceof PDFRef) {
+      const grandParentDict = pdfDoc.context.lookup(grandParentEntry);
+      if (grandParentDict instanceof PDFDict) {
+        removeRefFromArray(grandParentDict, "Kids", nodeRef);
+        pruneEmptyContainer(grandParentDict, pdfDoc);
+      }
+    } else if (grandParentEntry instanceof PDFDict) {
+      removeRefFromArray(grandParentEntry, "Kids", nodeRef);
+      pruneEmptyContainer(grandParentEntry, pdfDoc);
+    }
+  }
+  nodeDict.delete(PDFName.of("Parent"));
 }
 
 type VariableTextField = PDFTextField | PDFDropdown | PDFOptionList;
@@ -600,7 +646,31 @@ export async function buildPdfBytes(
       }
 
       if (ef.origName && ef.origName !== ef.name) {
-        const sourceField = pdfFieldByName.get(ef.origName);
+        // For duplicate names pdfFieldByName only keeps the last object.
+        // Use pdfFieldsByNameMulti and match by page/widgetIndex to pick
+        // the correct source field.
+        let sourceField: PDFField | undefined;
+        const candidates = pdfFieldsByNameMulti.get(ef.origName);
+        if (!candidates || candidates.length <= 1) {
+          sourceField = pdfFieldByName.get(ef.origName);
+        } else {
+          for (const candidate of candidates) {
+            const widgets = candidate.acroField.getWidgets();
+            if (ef.widgetIndex < widgets.length) {
+              const widget = widgets[ef.widgetIndex];
+              const widgetRef = pdfDoc.context.getObjectRef(widget.dict);
+              if (widgetRef) {
+                const page = pdfDoc.findPageForAnnotationRef(widgetRef);
+                if (page && pages.indexOf(page) + 1 === ef.pageNumber) {
+                  sourceField = candidate;
+                  break;
+                }
+              }
+            }
+          }
+          if (!sourceField) sourceField = candidates[0];
+        }
+
         if (sourceField && sourceField !== targetField) {
           const targetHasKids =
             targetField?.acroField.dict.lookupMaybe(PDFName.of("Kids"), PDFArray) !== undefined;
@@ -658,6 +728,7 @@ export async function buildPdfBytes(
       // background to every widget it creates.
       const tf = ensureTargetField();
       if (!tf) continue;
+
       const appearance = {
         ...info.r,
         textColor: ef.textColor ? hexToColor(ef.textColor) : undefined,
