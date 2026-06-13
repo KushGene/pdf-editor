@@ -69,5 +69,10 @@
   "signHint": "Signez dans la zone blanche avec la souris, le stylet ou le tactile. La signature est insérée comme tampon d'image – le PDF reste modifiable et n'est pas verrouillé.",
   "currentVersion": "Version installée",
   "updateAvailable": "Mise à jour disponible",
-  "updateAvailableTitle": "La version {{version}} est disponible sur GitHub – cliquer pour télécharger"
+  "updateAvailableTitle": "La version {{version}} est disponible sur GitHub – cliquer pour télécharger",
+  "links": "Liaisons",
+  "linkedFields": "Champs liés",
+  "unlink": "Dissocier",
+  "unlinkTooltip": "Ce champ deviendra indépendant et recevra un nouveau nom.",
+  "page": "Page"
 }

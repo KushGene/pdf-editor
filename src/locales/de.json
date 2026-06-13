@@ -69,5 +69,10 @@
   "signHint": "Mit Maus, Stift oder Touch im weißen Bereich unterschreiben. Die Unterschrift wird als Bildstempel eingefügt – die PDF bleibt bearbeitbar und wird nicht gesperrt.",
   "currentVersion": "Installierte Version",
   "updateAvailable": "Update verfügbar",
-  "updateAvailableTitle": "Version {{version}} ist auf GitHub verfügbar – klicken zum Herunterladen"
+  "updateAvailableTitle": "Version {{version}} ist auf GitHub verfügbar – klicken zum Herunterladen",
+  "links": "Verknüpfungen",
+  "linkedFields": "Verbundene Felder",
+  "unlink": "Verknüpfung aufheben",
+  "unlinkTooltip": "Dieses Feld wird unabhängig und erhält einen neuen Namen.",
+  "page": "Seite"
 }

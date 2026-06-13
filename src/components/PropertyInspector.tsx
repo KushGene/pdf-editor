@@ -235,6 +235,41 @@ export default function PropertyInspector() {
     );
   }
 
+  /** Fields that share the same PDF origin (linked value). */
+  const linkedFields = field
+    ? formFields.filter(
+        (f) =>
+          f.id !== field.id &&
+          (f.origName ?? f.name) === (field.origName ?? field.name)
+      )
+    : [];
+
+  /** Break the PDF-level link: clear origName so this field becomes independent. */
+  function unlinkField() {
+    if (!field) return;
+    if (!hasPushedHistory.current) {
+      pushHistory();
+      hasPushedHistory.current = true;
+    }
+    let newName = field.name;
+    if (field.origName !== undefined && field.name === field.origName) {
+      let counter = 1;
+      const existingNames = new Set(formFields.map((f) => f.name));
+      while (existingNames.has(`${field.name}_${counter}`)) {
+        counter++;
+      }
+      newName = `${field.name}_${counter}`;
+    }
+    setFormFields((prev) =>
+      prev.map((f) => {
+        if (f.id === field.id) {
+          return { ...f, origName: undefined, name: newName } as FormField;
+        }
+        return f;
+      })
+    );
+  }
+
   return (
     <aside
       style={{
@@ -280,6 +315,50 @@ export default function PropertyInspector() {
               />
             </InputRow>
           </Accordion>
+
+          {linkedFields.length > 0 && (
+            <Accordion title={t("links")}>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.5rem",
+                }}
+              >
+                <span style={{ fontSize: "0.75rem", color: "#cccccc" }}>
+                  {t("linkedFields")}
+                </span>
+                {linkedFields.map((f) => (
+                  <div
+                    key={f.id}
+                    style={{
+                      fontSize: "0.75rem",
+                      color: "#9ca3af",
+                      padding: "0.25rem 0.5rem",
+                      backgroundColor: "#1e1e1e",
+                      borderRadius: "4px",
+                    }}
+                  >
+                    {f.name}{" "}
+                    <span style={{ color: "#6b7280" }}>
+                      ({t("page")} {f.pageNumber})
+                    </span>
+                  </div>
+                ))}
+                <button
+                  style={{
+                    height: "28px",
+                    fontSize: "0.78rem",
+                    marginTop: "0.25rem",
+                  }}
+                  onClick={unlinkField}
+                  title={t("unlinkTooltip")}
+                >
+                  {t("unlink")}
+                </button>
+              </div>
+            </Accordion>
+          )}
 
           <Accordion title={t("valuesAndFormat")}>
             <InputRow label={t("type")}>

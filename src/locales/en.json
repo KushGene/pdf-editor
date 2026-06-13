@@ -69,5 +69,10 @@
   "signHint": "Sign in the white area with mouse, pen or touch. The signature is inserted as an image stamp – the PDF stays editable and is not locked.",
   "currentVersion": "Installed version",
   "updateAvailable": "Update available",
-  "updateAvailableTitle": "Version {{version}} is available on GitHub – click to download"
+  "updateAvailableTitle": "Version {{version}} is available on GitHub – click to download",
+  "links": "Links",
+  "linkedFields": "Linked Fields",
+  "unlink": "Unlink",
+  "unlinkTooltip": "This field will become independent and receive a new name.",
+  "page": "Page"
 }
