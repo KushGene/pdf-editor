@@ -100,6 +100,38 @@ function safelyRemoveField(pdfField: PDFField, pdfDoc: PDFDocument) {
   }
 }
 
+/**
+ * Detach a field from its parent hierarchy and promote it to a top-level
+ * AcroForm field. This is needed when renaming hierarchical fields (e.g.
+ * "9.1.6832" → "Foo") so the old parent prefixes are not prepended.
+ */
+function detachFromParentHierarchy(field: PDFField, pdfDoc: PDFDocument) {
+  try {
+    const fieldRef = pdfDoc.context.getObjectRef(field.acroField.dict);
+    if (!fieldRef) return;
+    if (!field.acroField.dict.has(PDFName.of("Parent"))) return;
+    const parentEntry = field.acroField.dict.get(PDFName.of("Parent"));
+    let parentDict: PDFDict;
+    if (parentEntry instanceof PDFRef) {
+      const lookedUp = pdfDoc.context.lookup(parentEntry);
+      if (!(lookedUp instanceof PDFDict)) return;
+      parentDict = lookedUp;
+    } else if (parentEntry instanceof PDFDict) {
+      parentDict = parentEntry;
+    } else {
+      return;
+    }
+    removeRefFromArray(parentDict, "Kids", fieldRef);
+    field.acroField.dict.delete(PDFName.of("Parent"));
+    const acroForm = pdfDoc.catalog.getOrCreateAcroForm();
+    const fieldsArr = acroForm.dict.lookupMaybe(PDFName.of("Fields"), PDFArray);
+    if (fieldsArr) fieldsArr.push(fieldRef);
+    else acroForm.dict.set(PDFName.of("Fields"), pdfDoc.context.obj([fieldRef]));
+  } catch (err) {
+    warn(`could not detach field "${field.getName()}" from parent hierarchy`, err);
+  }
+}
+
 type VariableTextField = PDFTextField | PDFDropdown | PDFOptionList;
 
 /**
@@ -467,6 +499,38 @@ export async function buildPdfBytes(
     }
   }
 
+  // Phase 2b – update properties on duplicate PDF fields that share a name
+  // but were not reached via pdfFieldByName (which only keeps the last
+  // object for duplicate names).
+  for (const [name, pdfFields] of pdfFieldsByNameMulti) {
+    if (pdfFields.length <= 1) continue;
+    if (!keptOrigNames.has(name)) continue;
+    const editors = byOrigName.get(name);
+    if (!editors || editors.length === 0) continue;
+    const lastEf = editors[editors.length - 1];
+    for (const pdfField of pdfFields) {
+      if (pdfField === pdfFieldByName.get(name)) continue;
+      try {
+        if (
+          pdfField instanceof PDFTextField ||
+          pdfField instanceof PDFDropdown ||
+          pdfField instanceof PDFOptionList ||
+          pdfField instanceof PDFRadioGroup
+        ) {
+          applyProperties(lastEf, pdfField, pdfDoc);
+        } else if (pdfField instanceof PDFCheckBox) {
+          const anyChecked = editors.some((ef) => ef.value === "Yes");
+          const efWithValue = anyChecked
+            ? { ...lastEf, value: "Yes" as const }
+            : { ...lastEf, value: undefined as string | undefined };
+          applyProperties(efWithValue, pdfField, pdfDoc);
+        }
+      } catch (err) {
+        warn(`could not update duplicate field "${name}"`, err);
+      }
+    }
+  }
+
   // PHASE 3 – create, rename or re-type fields
   const byTargetName = new Map<string, FormField[]>();
   for (const ef of workingFields) {
@@ -561,6 +625,7 @@ export async function buildPdfBytes(
             removeFieldFromAcroFormOnly(sourceField, pdfDoc);
           } else {
             // Simple rename for merged field/widgets: just change the T value
+            detachFromParentHierarchy(sourceField, pdfDoc);
             sourceField.acroField.dict.set(PDFName.of("T"), PDFHexString.fromText(ef.name));
             const widgets = sourceField.acroField.getWidgets();
             for (const widget of widgets) {
