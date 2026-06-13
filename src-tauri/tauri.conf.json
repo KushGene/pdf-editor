@@ -34,7 +34,7 @@
     "shortDescription": "Desktop editor for PDF form fields",
     "longDescription": "PDF Form Editor lets you open PDF files, fill in and edit AcroForm fields, add signatures, and export the result — all in a lightweight desktop app.",
     "licenseFile": "../LICENSE",
-    "category": "Office",
+    "category": "Productivity",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
