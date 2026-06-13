@@ -12,6 +12,7 @@ import {
   PDFArray,
   PDFDict,
   PDFRef,
+  PDFObject,
 } from "pdf-lib";
 import type { PDFField, PDFWidgetAnnotation } from "pdf-lib";
 import type { FormField } from "../types/FormField";
@@ -258,12 +259,38 @@ export async function buildPdfBytes(
 ): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.load(new Uint8Array(pdfBuffer.slice(0)));
 
-  // Remove deleted pages in descending order to preserve indices
+  // Remove deleted pages in descending order to preserve indices.
+  // Widget annotations that belong to multi-page fields must be detached from
+  // their parent AcroForm field *before* the page is removed, otherwise the
+  // widget reference keeps the page object alive in the output file.
   const sortedDeleted = [...deletedPages].sort((a, b) => b - a);
   for (const pageNum of sortedDeleted) {
     const idx = pageNum - 1;
     if (idx >= 0 && idx < pdfDoc.getPageCount()) {
       try {
+        const page = pdfDoc.getPage(idx);
+        const annots = page.node.lookupMaybe(PDFName.of("Annots"), PDFArray);
+        if (annots) {
+          for (let i = annots.size() - 1; i >= 0; i--) {
+            const ref = annots.get(i);
+            let dict: PDFObject | undefined = ref;
+            if (ref instanceof PDFRef) {
+              dict = pdfDoc.context.lookup(ref);
+            }
+            if (dict instanceof PDFDict) {
+              const subtype = dict.lookup(PDFName.of("Subtype"));
+              if (subtype === PDFName.of("Widget")) {
+                // Remove this widget from its parent field's Kids array
+                const parent = dict.lookup(PDFName.of("Parent"));
+                if (parent instanceof PDFDict) {
+                  removeRefFromArray(parent, "Kids", ref);
+                }
+                // Remove the annotation from the page's Annots array
+                annots.remove(i);
+              }
+            }
+          }
+        }
         pdfDoc.removePage(idx);
       } catch (err) {
         warn(`could not remove page ${pageNum}`, err);
