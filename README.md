@@ -1,6 +1,6 @@
 # PDF Form Editor
 
-A cross-platform desktop application for visually editing PDF forms and documents. Built with **Tauri v2**, **React 19**, **pdf-lib**, and **pdfjs-dist**.
+A cross-platform desktop application for visually editing PDF forms and documents. Built with **Tauri v2**, **React 19**, **@cantoo/pdf-lib**, and **pdfjs-dist**.
 
 ## Features
 
@@ -23,7 +23,7 @@ A cross-platform desktop application for visually editing PDF forms and document
 | Desktop Shell | Tauri 2 (Rust) |
 | Build Tool | Vite 7 |
 | PDF Rendering | pdfjs-dist 6.x |
-| PDF Manipulation | pdf-lib 1.17.x |
+| PDF Manipulation | @cantoo/pdf-lib 2.7.x (fork of pdf-lib) |
 | Canvas / Drag | Konva + react-konva |
 | Styling | CSS (custom) |
 | Icons | lucide-react |
@@ -87,7 +87,7 @@ The distributable app will be in `src-tauri/target/release/bundle/`.
 - **`FieldOverlay`** — Konva-based layer for rendering, selecting, dragging, and resizing form fields.
 - **`PropertyInspector`** — Side panel for editing field properties in real time.
 - **`TopBar`** — File open/save, zoom controls, page navigation, and field insertion tools.
-- **`useAcroFormExtractor`** — Parses loaded PDFs with pdf-lib to extract AcroForm fields into editor-friendly `FormField` objects.
+- **`useAcroFormExtractor`** — Parses loaded PDFs with @cantoo/pdf-lib to extract AcroForm fields into editor-friendly `FormField` objects.
 - **`buildPdfBytes`** — Reconstructs the PDF from the editor state: updates existing fields, renames/moves widgets, creates new fields, removes deleted ones, and embeds images.
 
 ## License
