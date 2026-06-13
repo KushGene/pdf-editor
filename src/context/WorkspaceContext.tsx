@@ -176,8 +176,18 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       if (prev.includes(pageNumber)) return prev;
       return [...prev, pageNumber].sort((a, b) => a - b);
     });
+    // Remove fields that live on the deleted page so they no longer show up
+    // in the inspector (linked fields, counts, etc.)
+    _setFormFields((prev) => prev.filter((f) => f.pageNumber !== pageNumber));
     // Deselect fields on deleted page
     _setSelectedFieldId((prevId) => {
+      if (!prevId) return null;
+      const field = formFieldsRef.current.find((f) => f.id === prevId);
+      if (field && field.pageNumber === pageNumber) return null;
+      return prevId;
+    });
+    // Close signature dialog if the field is on the deleted page
+    setSignatureFieldId((prevId) => {
       if (!prevId) return null;
       const field = formFieldsRef.current.find((f) => f.id === prevId);
       if (field && field.pageNumber === pageNumber) return null;
