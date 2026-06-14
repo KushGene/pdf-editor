@@ -1,3 +1,6 @@
+/** Checkbox "checked" glyph styles (matching Adobe Acrobat's set). */
+export type CheckSymbol = "check" | "cross" | "circle" | "square" | "diamond" | "star";
+
 export interface FormField {
   id: string;
   pageNumber: number;
@@ -32,6 +35,8 @@ export interface FormField {
   sorted?: boolean;
   /** Multiselect flag for option lists. */
   multiselect?: boolean;
+  /** Symbol drawn when a checkbox is checked. Undefined = keep PDF default (check). */
+  checkSymbol?: CheckSymbol;
   imageSrc?: string;
   /** Index of the widget inside the AcroField (for multi-widget fields). */
   widgetIndex: number;
@@ -44,4 +49,6 @@ export interface FormField {
   origHeight?: number;
   /** Original name at PDF-load time. Used to track which PDF field this editor field came from. */
   origName?: string;
+  /** Checkbox symbol at PDF-load time. Lets the builder skip rewriting unchanged appearances. */
+  origCheckSymbol?: CheckSymbol;
 }

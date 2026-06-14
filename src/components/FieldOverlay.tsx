@@ -144,7 +144,7 @@ export default function FieldOverlay({ pageNumber, width, height }: FieldOverlay
         ctx.restore();
       }
 
-      // ── Checkbox X mark ─────────────────────────────────────────────────────
+      // ── Checkbox mark (symbol depends on field.checkSymbol) ──────────────────
       if (
         field.type === "checkbox" &&
         (field.value === "Yes" || field.value === "true")
@@ -155,22 +155,59 @@ export default function FieldOverlay({ pageNumber, width, height }: FieldOverlay
         const y1 = field.y * rs + pad;
         const x2 = (field.x + field.width) * rs - pad;
         const y2 = (field.y + field.height) * rs - pad;
+        const cx = (field.x + field.width / 2) * rs;
+        const cy = (field.y + field.height / 2) * rs;
+        const radius = (inner / 2 - inner * 0.2) * rs;
         const sw = Math.max(rs * 0.8, inner * 0.11 * rs);
 
         ctx.save();
-        ctx.strokeStyle = "#1a56db";
+        ctx.strokeStyle = field.textColor ?? "#1a56db";
+        ctx.fillStyle = field.textColor ?? "#1a56db";
         ctx.lineWidth = sw;
         ctx.lineCap = "round";
+        ctx.lineJoin = "round";
 
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(x2, y1);
-        ctx.lineTo(x1, y2);
-        ctx.stroke();
+        const symbol = field.checkSymbol ?? "check";
+        if (symbol === "cross") {
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.moveTo(x2, y1);
+          ctx.lineTo(x1, y2);
+          ctx.stroke();
+        } else if (symbol === "circle") {
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (symbol === "square") {
+          ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+        } else if (symbol === "diamond") {
+          ctx.beginPath();
+          ctx.moveTo(cx, y1);
+          ctx.lineTo(x2, cy);
+          ctx.lineTo(cx, y2);
+          ctx.lineTo(x1, cy);
+          ctx.closePath();
+          ctx.fill();
+        } else if (symbol === "star") {
+          ctx.beginPath();
+          for (let i = 0; i < 10; i++) {
+            const r = i % 2 === 0 ? radius : radius * 0.45;
+            const a = -Math.PI / 2 + (i * Math.PI) / 5;
+            const px = cx + r * Math.cos(a);
+            const py = cy + r * Math.sin(a);
+            i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          // check mark
+          ctx.beginPath();
+          ctx.moveTo(x1, cy);
+          ctx.lineTo(cx - inner * 0.05 * rs, y2);
+          ctx.lineTo(x2, y1);
+          ctx.stroke();
+        }
         ctx.restore();
       }
     }

@@ -1,5 +1,151 @@
-import { PDFName, PDFString, rgb } from "pdf-lib";
-import type { Color, PDFWidgetAnnotation } from "pdf-lib";
+import { PDFName, PDFString, PDFDict, rgb } from "pdf-lib";
+import type { Color, PDFDocument, PDFWidgetAnnotation } from "pdf-lib";
+import type { CheckSymbol } from "../types/FormField";
+
+/**
+ * ZapfDingbats character used in /MK /CA for each checkbox style. These are the
+ * same caption characters Adobe Acrobat writes, so Acrobat regenerates the same
+ * glyph when NeedAppearances is set.
+ */
+export const CHECK_SYMBOL_CA: Record<CheckSymbol, string> = {
+  check: "4",
+  cross: "8",
+  circle: "l",
+  square: "n",
+  diamond: "u",
+  star: "H",
+};
+
+/** Reverse of CHECK_SYMBOL_CA: map a /MK /CA caption back to a CheckSymbol. */
+export function caToCheckSymbol(ca: string | undefined): CheckSymbol | undefined {
+  if (!ca) return undefined;
+  const c = ca.trim();
+  for (const key of Object.keys(CHECK_SYMBOL_CA) as CheckSymbol[]) {
+    if (CHECK_SYMBOL_CA[key] === c) return key;
+  }
+  return undefined;
+}
+
+/**
+ * Determine the "on" state name of a checkbox widget (the non-Off key in its
+ * /AP /N dictionary, falling back to its /AS or "Yes").
+ */
+export function getCheckBoxOnState(widget: PDFWidgetAnnotation): string {
+  try {
+    const ap = widget.dict.lookupMaybe(PDFName.of("AP"), PDFDict);
+    const n = ap?.lookupMaybe(PDFName.of("N"), PDFDict);
+    if (n) {
+      for (const key of n.keys()) {
+        const name = key.asString().replace(/^\//, "");
+        if (name !== "Off") return name;
+      }
+    }
+    const as = widget.dict.lookup(PDFName.of("AS"));
+    if (as instanceof PDFName) {
+      const name = as.asString().replace(/^\//, "");
+      if (name !== "Off") return name;
+    }
+  } catch {
+    // ignore
+  }
+  return "Yes";
+}
+
+/**
+ * Generate the on/off appearance streams of a checkbox widget so the chosen
+ * symbol is shown across all viewers (Acrobat regenerates from /MK /CA; Chrome
+ * and others use the explicit /AP we write here). The "off" state draws the
+ * box (border/background) so the field stays visible when unchecked – pdf-lib's
+ * default leaves it blank, which makes pasted/created checkboxes invisible in
+ * the browser.
+ */
+export function writeCheckBoxAppearance(
+  pdfDoc: PDFDocument,
+  widget: PDFWidgetAnnotation,
+  onState: string,
+  symbol: CheckSymbol,
+  opts: {
+    width: number;
+    height: number;
+    borderColor?: string;
+    borderWidth?: number;
+    backgroundColor?: string;
+    symbolColor?: string;
+  }
+) {
+  const w = Math.max(0.1, opts.width);
+  const h = Math.max(0.1, opts.height);
+  const ca = CHECK_SYMBOL_CA[symbol];
+
+  // Keep the caption in /MK so Acrobat (NeedAppearances) draws the same glyph.
+  const mk = widget.getOrCreateAppearanceCharacteristics();
+  mk.dict.set(PDFName.of("CA"), PDFString.of(ca));
+
+  const bw = opts.borderColor ? opts.borderWidth ?? 1 : 0;
+  const fmt = (n: number) => +n.toFixed(3);
+  const colorOps = (hex: string | undefined, stroke: boolean): string => {
+    const c = hex ? hexToComponents(hex) : undefined;
+    if (!c) return "";
+    const op = stroke ? "RG" : "rg";
+    return `${c.map(fmt).join(" ")} ${op}\n`;
+  };
+
+  const boxOps = (): string => {
+    let s = "";
+    if (opts.backgroundColor) {
+      s += colorOps(opts.backgroundColor, false);
+      s += `0 0 ${fmt(w)} ${fmt(h)} re\nf\n`;
+    }
+    if (bw > 0) {
+      s += colorOps(opts.borderColor, true);
+      s += `${fmt(bw)} w\n`;
+      s += `${fmt(bw / 2)} ${fmt(bw / 2)} ${fmt(w - bw)} ${fmt(h - bw)} re\nS\n`;
+    }
+    return s;
+  };
+
+  const fontRef = pdfDoc.context.register(
+    pdfDoc.context.obj({
+      Type: "Font",
+      Subtype: "Type1",
+      BaseFont: "ZapfDingbats",
+    })
+  );
+
+  const size = fmt(Math.min(w, h) * 0.8);
+  const c = opts.symbolColor ? hexToComponents(opts.symbolColor) : undefined;
+  const glyphColor = (c ?? [0, 0, 0]).map(fmt).join(" ");
+  // Centre the glyph; ZapfDingbats glyphs sit roughly on the baseline.
+  const tx = fmt(w / 2 - (Number(size) * 0.38));
+  const ty = fmt(h / 2 - (Number(size) * 0.34));
+
+  const onContent =
+    `q\n${boxOps()}` +
+    `BT\n/ZaDb ${size} Tf\n${glyphColor} rg\n${tx} ${ty} Td\n(${ca}) Tj\nET\nQ\n`;
+  const offContent = `q\n${boxOps()}Q\n`;
+
+  const streamDict = {
+    Type: "XObject",
+    Subtype: "Form",
+    FormType: 1,
+    BBox: [0, 0, fmt(w), fmt(h)],
+    Resources: { Font: { ZaDb: fontRef } },
+  };
+
+  const onRef = pdfDoc.context.register(
+    pdfDoc.context.flateStream(onContent, streamDict)
+  );
+  const offRef = pdfDoc.context.register(
+    pdfDoc.context.flateStream(offContent, streamDict)
+  );
+
+  const apDict = pdfDoc.context.obj({});
+  const nDict = pdfDoc.context.obj({});
+  nDict.set(PDFName.of(onState), onRef);
+  nDict.set(PDFName.of("Off"), offRef);
+  apDict.set(PDFName.of("N"), nDict);
+  widget.dict.set(PDFName.of("AP"), apDict);
+}
 
 /** Convert "#rrggbb" to PDF color components in the 0..1 range. */
 export function hexToComponents(hex: string): [number, number, number] | undefined {

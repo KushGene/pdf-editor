@@ -20,12 +20,14 @@ import type { PDFField, PDFWidgetAnnotation } from "pdf-lib";
 import type { FormField } from "../types/FormField";
 import {
   composeDa,
+  getCheckBoxOnState,
   getWidgetDa,
   hexToColor,
   parseDaColor,
   parseDaFontName,
   parseDaFontSize,
   setWidgetDa,
+  writeCheckBoxAppearance,
   writeWidgetAppearance,
 } from "./fieldAppearance";
 
@@ -351,6 +353,39 @@ function applyProperties(
   }
 }
 
+/**
+ * Rewrite a checkbox's appearance streams so the chosen "checked" symbol is
+ * shown across viewers. Skips untouched original fields (force=false and the
+ * symbol is unchanged) to preserve their author-drawn appearance.
+ */
+function applyCheckSymbol(
+  ef: FormField,
+  pdfField: PDFField,
+  pdfDoc: PDFDocument,
+  force: boolean
+) {
+  if (!(pdfField instanceof PDFCheckBox)) return;
+  if (!force && (ef.checkSymbol === undefined || ef.checkSymbol === ef.origCheckSymbol)) {
+    return;
+  }
+  const symbol = ef.checkSymbol ?? "check";
+  try {
+    for (const w of pdfField.acroField.getWidgets()) {
+      const r = w.getRectangle();
+      writeCheckBoxAppearance(pdfDoc, w, getCheckBoxOnState(w), symbol, {
+        width: r.width,
+        height: r.height,
+        borderColor: ef.borderColor,
+        borderWidth: ef.borderWidth,
+        backgroundColor: ef.backgroundColor,
+        symbolColor: ef.textColor,
+      });
+    }
+  } catch (err) {
+    warn(`could not write checkbox appearance for "${ef.name}"`, err);
+  }
+}
+
 export async function buildPdfBytes(
   pdfBuffer: ArrayBuffer,
   formFields: FormField[],
@@ -523,6 +558,7 @@ export async function buildPdfBytes(
         }
         ef.readOnly ? pdfField.enableReadOnly() : pdfField.disableReadOnly();
         ef.required ? pdfField.enableRequired() : pdfField.disableRequired();
+        applyCheckSymbol(ef, pdfField, pdfDoc, false);
       } else if (pdfField instanceof PDFDropdown || pdfField instanceof PDFOptionList) {
         if (ef.options?.length) {
           pdfField.acroField.dict.set(PDFName.of("Opt"), optionsArray(pdfDoc, ef.options));
@@ -792,6 +828,10 @@ export async function buildPdfBytes(
             ? { ...last, value: "Yes" as const }
             : { ...last, value: undefined as string | undefined };
           applyProperties(efWithValue, field, pdfDoc);
+          // Created/pasted checkboxes (no origName) always get an explicit
+          // appearance so they are visible in the browser and show the chosen
+          // symbol; renamed originals only when the symbol changed.
+          applyCheckSymbol(efWithValue, field, pdfDoc, last.origName === undefined);
         }
       } catch (err) {
         warn(`could not apply properties to "${targetName}"`, err);
@@ -803,6 +843,49 @@ export async function buildPdfBytes(
   for (const pdfField of snapshot) {
     if (deletedOrigNames.has(pdfField.getName())) {
       safelyRemoveField(pdfField, pdfDoc);
+    }
+  }
+
+  // PHASE 4b – remove individual widgets deleted from multi-widget fields.
+  // A field that keeps at least one editor entry never reaches PHASE 4, so a
+  // single deleted widget of a 2-widget field (e.g. one of two linked
+  // checkboxes) would otherwise survive in the output. Map the surviving
+  // widgetIndex set per origName and detach any widget annotation not in it.
+  const survivingWidgetIdx = new Map<string, Set<number>>();
+  for (const ef of workingFields) {
+    if (ef.origName === undefined) continue;
+    if (ef.type === "image" || ef.type === "signature") continue;
+    const set = survivingWidgetIdx.get(ef.origName) ?? new Set<number>();
+    set.add(ef.widgetIndex);
+    survivingWidgetIdx.set(ef.origName, set);
+  }
+  for (const pdfField of snapshot) {
+    const name = pdfField.getName();
+    if (!loadedFieldNames.has(name)) continue;
+    if (deletedOrigNames.has(name)) continue; // whole field already removed
+    // Renamed fields are handled in PHASE 3; only touch fields kept under
+    // their original name to keep widget indices aligned with extraction.
+    if (!keptOrigNames.has(name)) continue;
+    const surviving = survivingWidgetIdx.get(name);
+    if (!surviving) continue;
+    let widgets: PDFWidgetAnnotation[];
+    try {
+      widgets = pdfField.acroField.getWidgets();
+    } catch {
+      continue;
+    }
+    if (surviving.size >= widgets.length) continue; // nothing was deleted
+    for (let i = widgets.length - 1; i >= 0; i--) {
+      if (surviving.has(i)) continue;
+      try {
+        const ref = pdfDoc.context.getObjectRef(widgets[i].dict);
+        if (!ref) continue;
+        const page = pdfDoc.findPageForAnnotationRef(ref);
+        if (page) removeRefFromArray(page.node, "Annots", ref);
+        removeRefFromArray(pdfField.acroField.dict, "Kids", ref);
+      } catch (err) {
+        warn(`could not remove deleted widget ${i} of "${name}"`, err);
+      }
     }
   }
   // Remove old signature widgets that are being replaced by drawn images

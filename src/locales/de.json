@@ -74,5 +74,19 @@
   "linkedFields": "Verbundene Felder",
   "unlink": "Verknüpfung aufheben",
   "unlinkTooltip": "Dieses Feld wird unabhängig und erhält einen neuen Namen.",
-  "page": "Seite"
+  "page": "Seite",
+  "overlapping": "Überdeckte Felder",
+  "overlappingHint": "Weitere Felder liegen an dieser Position übereinander und sind im Canvas schwer anklickbar:",
+  "selectField": "Auswählen",
+  "invalidName": "Ungültiger Feldname",
+  "invalidNameHint": "Der Name enthält einen Punkt in einer Namenskomponente. Manche Browser (z. B. Chrome) zeigen dieses Feld dann nicht als ausfüllbares Eingabefeld an.",
+  "fixName": "Punkte ersetzen",
+  "fixNameTooltip": "Ersetzt problematische Punkte durch Unterstriche. Achtung: ändert den Feldnamen – ggf. müssen Verweise (z. B. in der wilke-app) angepasst werden.",
+  "checkSymbol": "Häkchen-Symbol",
+  "symCheck": "Häkchen",
+  "symCross": "Kreuz",
+  "symCircle": "Kreis",
+  "symSquare": "Quadrat",
+  "symDiamond": "Raute",
+  "symStar": "Stern"
 }

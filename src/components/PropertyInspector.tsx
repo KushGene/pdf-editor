@@ -183,7 +183,7 @@ function CheckboxRow({
 
 export default function PropertyInspector() {
   const { t } = useTranslation();
-  const { selectedFieldId, formFields, setFormFields, setSignatureFieldId, pushHistory } = useWorkspace();
+  const { selectedFieldId, setSelectedFieldId, formFields, setFormFields, setSignatureFieldId, pushHistory } = useWorkspace();
   const field = formFields.find((f) => f.id === selectedFieldId);
   const hasPushedHistory = useRef(false);
 
@@ -243,6 +243,46 @@ export default function PropertyInspector() {
           (f.origName ?? f.name) === (field.origName ?? field.name)
       )
     : [];
+
+  /**
+   * Different fields that overlap the selected field on the same page. These
+   * are stacked in the canvas, so the lower one is hard or impossible to click
+   * (Konva delivers the click to the topmost shape only). Linked fields (same
+   * name) are excluded — they are shown in the Links section above.
+   */
+  const overlappingFields = field
+    ? formFields.filter((f) => {
+        if (f.id === field.id) return false;
+        if (f.pageNumber !== field.pageNumber) return false;
+        if ((f.origName ?? f.name) === (field.origName ?? field.name)) return false;
+        const ox = Math.max(
+          0,
+          Math.min(f.x + f.width, field.x + field.width) - Math.max(f.x, field.x)
+        );
+        const oy = Math.max(
+          0,
+          Math.min(f.y + f.height, field.y + field.height) - Math.max(f.y, field.y)
+        );
+        const overlap = ox * oy;
+        if (overlap <= 0) return false;
+        const minArea = Math.min(f.width * f.height, field.width * field.height);
+        return minArea > 0 && overlap / minArea >= 0.3;
+      })
+    : [];
+
+  /**
+   * A field name is invalid for some PDF viewers (notably Chrome/PDFium) when a
+   * name component is empty — i.e. the fully-qualified name has consecutive,
+   * leading or trailing dots (a partial name must not contain a period per
+   * ISO 32000 12.7.3.2). Such fields render but are not fillable in the browser.
+   */
+  const hasInvalidName = field ? field.name.split(".").includes("") : false;
+
+  /** Replace every period with an underscore so the name renders everywhere. */
+  function fixFieldName() {
+    if (!field) return;
+    updateField("name", field.name.replace(/\./g, "_"));
+  }
 
   /** Break the PDF-level link: clear origName so this field becomes independent. */
   function unlinkField() {
@@ -315,6 +355,73 @@ export default function PropertyInspector() {
               />
             </InputRow>
           </Accordion>
+
+          {hasInvalidName && (
+            <div
+              style={{
+                border: "1px solid #b45309",
+                backgroundColor: "#3a2a0c",
+                borderRadius: "4px",
+                padding: "0.6rem 0.7rem",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.5rem",
+                flexShrink: 0,
+              }}
+            >
+              <span style={{ fontSize: "0.78rem", fontWeight: 600, color: "#fbbf24" }}>
+                ⚠ {t("invalidName")}
+              </span>
+              <span style={{ fontSize: "0.72rem", color: "#d6c9a8", lineHeight: 1.4 }}>
+                {t("invalidNameHint")}
+              </span>
+              <button
+                style={{ height: "28px", fontSize: "0.78rem" }}
+                onClick={fixFieldName}
+                title={t("fixNameTooltip")}
+              >
+                {t("fixName")}: {field.name.replace(/\./g, "_")}
+              </button>
+            </div>
+          )}
+
+          {overlappingFields.length > 0 && (
+            <Accordion title={t("overlapping")}>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
+              >
+                <span style={{ fontSize: "0.75rem", color: "#cccccc" }}>
+                  {t("overlappingHint")}
+                </span>
+                {overlappingFields.map((f) => (
+                  <div
+                    key={f.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "0.5rem",
+                      fontSize: "0.75rem",
+                      color: "#9ca3af",
+                      padding: "0.25rem 0.25rem 0.25rem 0.5rem",
+                      backgroundColor: "#1e1e1e",
+                      borderRadius: "4px",
+                    }}
+                  >
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {f.name}
+                    </span>
+                    <button
+                      style={{ height: "24px", fontSize: "0.72rem", flexShrink: 0 }}
+                      onClick={() => setSelectedFieldId(f.id)}
+                    >
+                      {t("selectField")}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </Accordion>
+          )}
 
           {linkedFields.length > 0 && (
             <Accordion title={t("links")}>
@@ -394,6 +501,24 @@ export default function PropertyInspector() {
                 checked={field.value === "Yes"}
                 onChange={(v) => updateSharedValue(v ? "Yes" : undefined)}
               />
+            )}
+
+            {field.type === "checkbox" && (
+              <InputRow label={t("checkSymbol")}>
+                <select
+                  value={field.checkSymbol ?? "check"}
+                  onChange={(e) =>
+                    updateField("checkSymbol", e.target.value as FormField["checkSymbol"])
+                  }
+                >
+                  <option value="check">{t("symCheck")} ✓</option>
+                  <option value="cross">{t("symCross")} ✗</option>
+                  <option value="circle">{t("symCircle")} ●</option>
+                  <option value="square">{t("symSquare")} ■</option>
+                  <option value="diamond">{t("symDiamond")} ◆</option>
+                  <option value="star">{t("symStar")} ★</option>
+                </select>
+              </InputRow>
             )}
 
             {field.type === "text" && (

@@ -33,7 +33,10 @@
     "publisher": "KushGene",
     "shortDescription": "Desktop editor for PDF form fields",
     "longDescription": "PDF Form Editor lets you open PDF files, fill in and edit AcroForm fields, add signatures, and export the result — all in a lightweight desktop app.",
+    "license": "MIT",
     "licenseFile": "../LICENSE",
+    "copyright": "Copyright (c) 2026 KushGene",
+    "homepage": "https://github.com/KushGene/pdf-editor",
     "category": "Productivity",
     "icon": [
       "icons/32x32.png",
@@ -41,6 +44,14 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "desktopTemplate": "linux/desktop-template.desktop"
+      },
+      "rpm": {
+        "desktopTemplate": "linux/desktop-template.desktop"
+      }
+    }
   }
 }

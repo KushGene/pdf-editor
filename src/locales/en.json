@@ -74,5 +74,19 @@
   "linkedFields": "Linked Fields",
   "unlink": "Unlink",
   "unlinkTooltip": "This field will become independent and receive a new name.",
-  "page": "Page"
+  "page": "Page",
+  "overlapping": "Overlapping Fields",
+  "overlappingHint": "Other fields are stacked at this position and are hard to click on the canvas:",
+  "selectField": "Select",
+  "invalidName": "Invalid Field Name",
+  "invalidNameHint": "The name contains a period inside a name component. Some browsers (e.g. Chrome) then do not show this field as a fillable input.",
+  "fixName": "Replace periods",
+  "fixNameTooltip": "Replaces problematic periods with underscores. Note: changes the field name – references (e.g. in wilke-app) may need updating.",
+  "checkSymbol": "Check Symbol",
+  "symCheck": "Check",
+  "symCross": "Cross",
+  "symCircle": "Circle",
+  "symSquare": "Square",
+  "symDiamond": "Diamond",
+  "symStar": "Star"
 }

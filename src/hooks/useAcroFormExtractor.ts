@@ -16,10 +16,12 @@ import {
 } from "pdf-lib";
 import type { FormField } from "../types/FormField";
 import {
+  caToCheckSymbol,
   parseDaColor,
   parseDaFontSize,
   readWidgetAppearance,
 } from "../utils/fieldAppearance";
+import type { CheckSymbol } from "../types/FormField";
 
 export function useAcroFormExtractor(
   pdfBuffer: ArrayBuffer | null,
@@ -180,6 +182,7 @@ export function useAcroFormExtractor(
             let editable: boolean | undefined;
             let sorted: boolean | undefined;
             let multiselect: boolean | undefined;
+            let checkSymbol: CheckSymbol | undefined;
 
             try {
               const tu = field.acroField.dict.lookupMaybe(
@@ -276,6 +279,18 @@ export function useAcroFormExtractor(
               } catch {
                 // ignore
               }
+              try {
+                const mk =
+                  typeof (widget as any).getAppearanceCharacteristics === "function"
+                    ? (widget as any).getAppearanceCharacteristics()
+                    : undefined;
+                const ca = mk?.dict
+                  ?.lookupMaybe(PDFName.of("CA"), PDFString, PDFHexString)
+                  ?.decodeText();
+                checkSymbol = caToCheckSymbol(ca);
+              } catch {
+                // ignore
+              }
             } else if (field instanceof PDFRadioGroup) {
               type = "radio";
             } else if (field instanceof PDFDropdown) {
@@ -340,6 +355,7 @@ export function useAcroFormExtractor(
               editable,
               sorted,
               multiselect,
+              checkSymbol,
               widgetIndex: wi,
               origValue: value,
               origX: editorX,
@@ -347,6 +363,7 @@ export function useAcroFormExtractor(
               origWidth: rect.width,
               origHeight: rect.height,
               origName: field.getName(),
+              origCheckSymbol: checkSymbol,
             });
           }
         }

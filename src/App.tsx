@@ -64,6 +64,7 @@ function KeyboardShortcuts() {
               origWidth: _ow,
               origHeight: _oh,
               origValue: _ov,
+              origCheckSymbol: _ocs,
               widgetIndex: _wi,
               ...rest
             } = clipboardField;
@@ -74,6 +75,13 @@ function KeyboardShortcuts() {
               y: clipboardField.y + 10,
               widgetIndex: 0,
             };
+            // A pasted checkbox is created fresh by pdf-lib; without a border
+            // (and without a value) it draws nothing and is invisible in the
+            // browser. Give it a default border so the box always shows.
+            if (newField.type === "checkbox" && !newField.borderColor) {
+              newField.borderColor = "#000000";
+              newField.borderWidth = 1;
+            }
             setFormFields((prev) => [...prev, newField]);
             setSelectedFieldId(newField.id);
           }

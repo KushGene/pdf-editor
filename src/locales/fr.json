@@ -74,5 +74,19 @@
   "linkedFields": "Champs liés",
   "unlink": "Dissocier",
   "unlinkTooltip": "Ce champ deviendra indépendant et recevra un nouveau nom.",
-  "page": "Page"
+  "page": "Page",
+  "overlapping": "Champs superposés",
+  "overlappingHint": "D'autres champs sont superposés à cette position et sont difficiles à cliquer sur le canevas :",
+  "selectField": "Sélectionner",
+  "invalidName": "Nom de champ invalide",
+  "invalidNameHint": "Le nom contient un point dans un composant de nom. Certains navigateurs (p. ex. Chrome) n'affichent alors pas ce champ comme une saisie remplissable.",
+  "fixName": "Remplacer les points",
+  "fixNameTooltip": "Remplace les points problématiques par des traits de soulignement. Attention : modifie le nom du champ – les références (p. ex. dans wilke-app) peuvent devoir être mises à jour.",
+  "checkSymbol": "Symbole de coche",
+  "symCheck": "Coche",
+  "symCross": "Croix",
+  "symCircle": "Cercle",
+  "symSquare": "Carré",
+  "symDiamond": "Losange",
+  "symStar": "Étoile"
 }
