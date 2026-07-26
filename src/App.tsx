@@ -6,6 +6,7 @@ import PropertyInspector from "./components/PropertyInspector";
 import BottomBar from "./components/BottomBar";
 import SignatureDialog from "./components/SignatureDialog";
 import { useWorkspace } from "./context/WorkspaceContext";
+import { useStartupFile } from "./hooks/useStartupFile";
 import type { FormField } from "./types/FormField";
 import "./App.css";
 
@@ -140,6 +141,8 @@ function KeyboardShortcuts() {
 }
 
 function App() {
+  useStartupFile();
+
   return (
     <div className="app">
       <TopBar />

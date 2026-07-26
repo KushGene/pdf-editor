@@ -61,6 +61,10 @@
 
   <launchable type="desktop-id">PDF-Form-Editor.desktop</launchable>
 
+  <provides>
+    <mediatype>application/pdf</mediatype>
+  </provides>
+
   <categories>
     <category>Office</category>
     <category>Publishing</category>

@@ -9,8 +9,9 @@ Comment={{comment}}
 {{/if}}
 Comment[de]=Desktop-Editor für PDF-Formularfelder
 Comment[fr]=Éditeur de bureau pour les champs de formulaire PDF
-Exec={{exec}}
+Exec={{exec}} %f
 Icon={{icon}}
+MimeType=application/pdf;
 StartupWMClass={{exec}}
 StartupNotify=true
 Terminal=false
