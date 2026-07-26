@@ -4,9 +4,7 @@ Name=PDF Form Editor
 GenericName=PDF Form Editor
 GenericName[de]=PDF-Formular-Editor
 GenericName[fr]=Éditeur de formulaires PDF
-{{#if comment}}
 Comment={{comment}}
-{{/if}}
 Comment[de]=Desktop-Editor für PDF-Formularfelder
 Comment[fr]=Éditeur de bureau pour les champs de formulaire PDF
 Exec={{exec}} %f
