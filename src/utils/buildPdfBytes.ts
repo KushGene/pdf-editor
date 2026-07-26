@@ -8,6 +8,10 @@ import {
   PDFDropdown,
   PDFOptionList,
   PDFRadioGroup,
+  PDFSignature,
+  PDFAcroSignature,
+  PDFWidgetAnnotation,
+  AnnotationFlags,
   TextAlignment,
   PDFArray,
   PDFDict,
@@ -16,7 +20,7 @@ import {
   PDFRawStream,
   PDFStream,
 } from "pdf-lib";
-import type { PDFField, PDFWidgetAnnotation } from "pdf-lib";
+import type { PDFField } from "pdf-lib";
 import type { FormField } from "../types/FormField";
 import {
   composeDa,
@@ -46,6 +50,7 @@ function pdfFieldType(f: PDFField): string {
   if (f instanceof PDFDropdown) return "dropdown";
   if (f instanceof PDFOptionList) return "list";
   if (f instanceof PDFRadioGroup) return "radio";
+  if (f instanceof PDFSignature) return "signature";
   return "other";
 }
 
@@ -503,7 +508,12 @@ export async function buildPdfBytes(
 
   // PHASE 2 – update kept fields in place
   for (const ef of workingFields) {
-    if (ef.type === "image" || ef.type === "signature") continue;
+    // Images are page content, not AcroForm fields. Signature fields with a
+    // drawn image are stamped onto the page in PHASE 5. Signature fields
+    // WITHOUT an image are real AcroForm /Sig fields; their geometry is
+    // updated here, while creation/rename happens in PHASE 3b.
+    if (ef.type === "image") continue;
+    if (ef.type === "signature" && ef.imageSrc) continue;
     if (ef.origName === undefined) continue;
     if (!keptOrigNames.has(ef.origName)) continue;
     const pdfField = pdfFieldByName.get(ef.origName);
@@ -525,6 +535,9 @@ export async function buildPdfBytes(
         targetWidget.dict.set(PDFName.of("Rect"), pdfDoc.context.obj(info.raw));
       }
       if (targetWidget) writeWidgetAppearance(targetWidget, ef);
+
+      // Signature fields have no value/flags/DA to apply beyond geometry.
+      if (pdfField instanceof PDFSignature) continue;
 
       if (pdfField instanceof PDFTextField) {
         if (ef.value !== undefined && (ef.value === "" || ef.value !== ef.origValue)) {
@@ -888,6 +901,129 @@ export async function buildPdfBytes(
       }
     }
   }
+  // PHASE 3b – signature fields without a drawn image become real AcroForm
+  // signature fields (/FT /Sig) so external tools can find them by name and
+  // fill them. Signature fields WITH an image are stamped as page content in
+  // PHASE 5 below. pdf-lib has no high-level API for creating signature
+  // fields, so the field dict and widget are built manually.
+  const sigByName = new Map<string, FormField[]>();
+  for (const ef of workingFields) {
+    if (ef.type !== "signature" || ef.imageSrc) continue;
+    const list = sigByName.get(ef.name) ?? [];
+    list.push(ef);
+    sigByName.set(ef.name, list);
+  }
+
+  for (const [targetName, editors] of sigByName) {
+    // Skip groups entirely handled by PHASE 2 (kept name+type, not forced):
+    // their widget geometry was already updated in place.
+    const allHandledByPhase2 = editors.every(
+      (ef) =>
+        ef.origName !== undefined &&
+        ef.origName === ef.name &&
+        keptOrigNames.has(ef.origName) &&
+        !forcedPhase3Ids.has(ef.id)
+    );
+    if (allHandledByPhase2) continue;
+
+    let acroField: PDFAcroSignature | undefined;
+    let fieldRef: PDFRef | undefined;
+
+    // Reuse a renamed source field: find the original PDFSignature by origName
+    // and just rewrite its /T. This preserves any existing widget annotations.
+    for (const ef of editors) {
+      if (!ef.origName || ef.origName === ef.name) continue;
+      const source = pdfFieldByName.get(ef.origName);
+      if (source instanceof PDFSignature) {
+        detachFromParentHierarchy(source, pdfDoc);
+        source.acroField.dict.set(PDFName.of("T"), PDFHexString.fromText(ef.name));
+        acroField = source.acroField;
+        fieldRef = pdfDoc.context.getObjectRef(source.acroField.dict) ?? undefined;
+        // Keep the multi-name index in sync so later passes target the renamed
+        // field under its new name.
+        const oldList = pdfFieldsByNameMulti.get(ef.origName);
+        if (oldList) {
+          const filtered = oldList.filter((f) => f !== source);
+          if (filtered.length > 0) pdfFieldsByNameMulti.set(ef.origName, filtered);
+          else pdfFieldsByNameMulti.delete(ef.origName);
+        }
+        const newList = pdfFieldsByNameMulti.get(ef.name) ?? [];
+        if (!newList.includes(source)) {
+          newList.push(source);
+          pdfFieldsByNameMulti.set(ef.name, newList);
+        }
+        pdfFieldByName.delete(ef.origName);
+        pdfFieldByName.set(ef.name, source);
+        break;
+      }
+    }
+
+    // Reuse an existing field that already carries the target name.
+    if (!acroField || !fieldRef) {
+      const existing = pdfFieldByName.get(targetName);
+      if (existing instanceof PDFSignature) {
+        acroField = existing.acroField;
+        fieldRef = pdfDoc.context.getObjectRef(existing.acroField.dict) ?? undefined;
+      }
+    }
+
+    // Create a brand-new signature field: /FT /Sig + /T + empty /Kids, then
+    // register it and append it to the AcroForm /Fields array.
+    if (!acroField || !fieldRef) {
+      try {
+        const dict = pdfDoc.context.obj({
+          FT: PDFName.of("Sig"),
+          T: PDFHexString.fromText(targetName),
+          Kids: pdfDoc.context.obj([]),
+        });
+        fieldRef = pdfDoc.context.register(dict);
+        acroField = PDFAcroSignature.fromDict(dict, fieldRef);
+        const acroForm = pdfDoc.catalog.getOrCreateAcroForm();
+        const fieldsArr = acroForm.dict.lookupMaybe(PDFName.of("Fields"), PDFArray);
+        if (fieldsArr) fieldsArr.push(fieldRef);
+        else acroForm.dict.set(PDFName.of("Fields"), pdfDoc.context.obj([fieldRef]));
+      } catch (err) {
+        warn(`could not create signature field "${targetName}"`, err);
+        continue;
+      }
+    }
+
+    // Ensure one widget per editor entry, on the right page and with the
+    // current rect. Reuse existing widgets in order; create new ones only
+    // when the editor has more entries than the PDF field has widgets.
+    let widgets: PDFWidgetAnnotation[];
+    try {
+      widgets = acroField.getWidgets();
+    } catch (err) {
+      warn(`could not read widgets of signature field "${targetName}"`, err);
+      continue;
+    }
+    for (let i = 0; i < editors.length; i++) {
+      const ef = editors[i];
+      const info = toRect(ef);
+      if (!info) continue;
+      try {
+        let widget = widgets[i];
+        if (widget) {
+          widget.dict.set(PDFName.of("Rect"), pdfDoc.context.obj(info.raw));
+          widget.dict.set(PDFName.of("P"), info.page.ref);
+          writeWidgetAppearance(widget, ef);
+        } else {
+          widget = PDFWidgetAnnotation.create(pdfDoc.context, fieldRef);
+          widget.dict.set(PDFName.of("Rect"), pdfDoc.context.obj(info.raw));
+          widget.dict.set(PDFName.of("P"), info.page.ref);
+          widget.setFlagTo(AnnotationFlags.Print, true);
+          writeWidgetAppearance(widget, ef);
+          const widgetRef = pdfDoc.context.register(widget.dict);
+          acroField.addWidget(widgetRef);
+          info.page.node.addAnnot(widgetRef);
+        }
+      } catch (err) {
+        warn(`could not place signature widget ${i} of "${targetName}"`, err);
+      }
+    }
+  }
+
   // Remove old signature widgets that are being replaced by drawn images
   for (const ef of workingFields) {
     if (ef.type !== "signature" || !ef.origName || !ef.imageSrc) continue;
