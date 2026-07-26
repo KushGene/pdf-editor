@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "PDF Form Editor",
+  "productName": "PDF-Form-Editor",
   "mainBinaryName": "pdf-form-editor",
   "version": "0.2.0",
   "identifier": "com.kushgene.pdf-form-editor",
@@ -13,7 +13,7 @@
   "app": {
     "windows": [
       {
-        "title": "PDF Editor",
+        "title": "PDF Form Editor",
         "width": 1280,
         "height": 800
       }
@@ -47,10 +47,21 @@
     ],
     "linux": {
       "deb": {
-        "desktopTemplate": "linux/desktop-template.desktop"
+        "desktopTemplate": "linux/desktop-template.desktop",
+        "files": {
+          "/usr/share/metainfo/com.kushgene.pdf-form-editor.metainfo.xml": "linux/com.kushgene.pdf-form-editor.metainfo.xml"
+        }
       },
       "rpm": {
-        "desktopTemplate": "linux/desktop-template.desktop"
+        "desktopTemplate": "linux/desktop-template.desktop",
+        "files": {
+          "/usr/share/metainfo/com.kushgene.pdf-form-editor.metainfo.xml": "linux/com.kushgene.pdf-form-editor.metainfo.xml"
+        }
+      },
+      "appimage": {
+        "files": {
+          "/usr/share/metainfo/com.kushgene.pdf-form-editor.metainfo.xml": "linux/com.kushgene.pdf-form-editor.metainfo.xml"
+        }
       }
     }
   }

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.kushgene.pdf-form-editor</id>
+
+  <name>PDF Form Editor</name>
+  <name xml:lang="de">PDF-Formular-Editor</name>
+  <name xml:lang="fr">Éditeur de formulaires PDF</name>
+
+  <summary>Edit PDF form fields</summary>
+  <summary xml:lang="de">PDF-Formularfelder bearbeiten</summary>
+  <summary xml:lang="fr">Modifier les champs de formulaire PDF</summary>
+
+  <developer id="de.posteo.kushgene">
+    <name>KushGene</name>
+  </developer>
+  <update_contact>kushgene_AT_posteo.de</update_contact>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <description>
+    <p>
+      PDF Form Editor is a lightweight desktop application for working with
+      interactive PDF forms. It opens PDF files, reads their existing AcroForm
+      fields and lets you create, move, resize and configure form fields
+      directly on the page.
+    </p>
+    <p xml:lang="de">
+      Der PDF-Formular-Editor ist eine schlanke Desktop-Anwendung für interaktive
+      PDF-Formulare. Er öffnet PDF-Dateien, liest die vorhandenen AcroForm-Felder
+      aus und ermöglicht es, Formularfelder direkt auf der Seite anzulegen, zu
+      verschieben, zu skalieren und zu konfigurieren.
+    </p>
+    <p xml:lang="fr">
+      PDF Form Editor est une application de bureau légère pour les formulaires
+      PDF interactifs. Elle ouvre les fichiers PDF, lit leurs champs AcroForm
+      existants et permet de créer, déplacer, redimensionner et configurer des
+      champs de formulaire directement sur la page.
+    </p>
+    <p>Features:</p>
+    <p xml:lang="de">Funktionen:</p>
+    <p xml:lang="fr">Fonctionnalités :</p>
+    <ul>
+      <li>Create and edit text fields, checkboxes, dropdowns and radio buttons</li>
+      <li xml:lang="de">Textfelder, Checkboxen, Dropdowns und Optionsfelder anlegen und bearbeiten</li>
+      <li xml:lang="fr">Créer et modifier des champs de texte, cases à cocher, listes déroulantes et boutons radio</li>
+      <li>Place signature fields and embed PNG/JPG images</li>
+      <li xml:lang="de">Signaturfelder platzieren und PNG-/JPG-Bilder einbetten</li>
+      <li xml:lang="fr">Placer des champs de signature et intégrer des images PNG/JPG</li>
+      <li>Adjust field properties such as name, tooltip, font size, alignment and read-only state</li>
+      <li xml:lang="de">Feldeigenschaften wie Name, Tooltip, Schriftgröße, Ausrichtung und Schreibschutz anpassen</li>
+      <li xml:lang="fr">Ajuster les propriétés des champs : nom, infobulle, taille de police, alignement, lecture seule</li>
+      <li>Preview mode, undo/redo and clipboard support</li>
+      <li xml:lang="de">Vorschaumodus, Undo/Redo und Zwischenablage</li>
+      <li xml:lang="fr">Mode aperçu, annuler/rétablir et presse-papiers</li>
+      <li>Export back to a standards-compliant PDF, with a backup of the original file</li>
+      <li xml:lang="de">Export als standardkonformes PDF, inklusive Backup der Originaldatei</li>
+      <li xml:lang="fr">Export vers un PDF conforme aux normes, avec sauvegarde du fichier d'origine</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">PDF-Form-Editor.desktop</launchable>
+
+  <categories>
+    <category>Office</category>
+    <category>Publishing</category>
+  </categories>
+
+  <keywords>
+    <keyword>PDF</keyword>
+    <keyword>Form</keyword>
+    <keyword>AcroForm</keyword>
+    <keyword>Fields</keyword>
+    <keyword>Signature</keyword>
+    <keyword xml:lang="de">Formular</keyword>
+    <keyword xml:lang="de">Felder</keyword>
+    <keyword xml:lang="de">Unterschrift</keyword>
+    <keyword xml:lang="fr">Formulaire</keyword>
+    <keyword xml:lang="fr">Champs</keyword>
+  </keywords>
+
+  <url type="homepage">https://github.com/KushGene/pdf-editor</url>
+  <url type="bugtracker">https://github.com/KushGene/pdf-editor/issues</url>
+  <url type="vcs-browser">https://github.com/KushGene/pdf-editor</url>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <recommends>
+    <display_length compare="ge">768</display_length>
+  </recommends>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="0.2.0" date="2026-07-26">
+      <url type="details">https://github.com/KushGene/pdf-editor/releases/tag/v0.2.0</url>
+      <description>
+        <p>Real AcroForm signature fields for signature placeholders, plus packaging metadata improvements.</p>
+      </description>
+    </release>
+  </releases>
+</component>
