@@ -99,6 +99,12 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="0.3.0" date="2026-10-05">
+      <url type="details">https://github.com/KushGene/pdf-editor/releases/tag/v0.3.0</url>
+      <description>
+        <p>Open PDFs from the command line, correct display of highlighted note fields, and auto font size preserved on save.</p>
+      </description>
+    </release>
     <release version="0.2.0" date="2026-07-26">
       <url type="details">https://github.com/KushGene/pdf-editor/releases/tag/v0.2.0</url>
       <description>

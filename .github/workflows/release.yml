@@ -20,9 +20,19 @@ jobs:
         shell: bash
         run: |
           PREV_TAG=$(git describe --tags --abbrev=0 --match 'v*' HEAD^ 2>/dev/null || echo "")
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Section "## [X.Y.Z] ..." of CHANGELOG.md up to the next "## [" heading
+          NOTES=$(awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md 2>/dev/null || true)
           {
             echo "body<<EOF"
-            if [ -n "$PREV_TAG" ]; then
+            if [ -n "$(echo "$NOTES" | tr -d '[:space:]')" ]; then
+              echo "$NOTES"
+              echo ""
+            elif [ -n "$PREV_TAG" ]; then
               echo "## Changes"
               echo ""
               git log --pretty=format:"- %s (%h)" ${PREV_TAG}..HEAD

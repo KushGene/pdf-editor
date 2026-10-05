@@ -6,7 +6,7 @@
 %global desktop_id PDF-Form-Editor.desktop
 
 Name:           pdf-form-editor
-Version:        0.2.0
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        Desktop editor for PDF form fields
 
@@ -88,5 +88,8 @@ appstreamcli validate --no-net %{buildroot}%{_metainfodir}/%{appid}.metainfo.xml
 %{_datadir}/icons/hicolor/*/apps/%{name}.png
 
 %changelog
+* Mon Oct 05 2026 KushGene <kushgene@posteo.de> - 0.3.0-1
+- Update to 0.3.0
+
 * Sun Jul 26 2026 KushGene <kushgene@posteo.de> - 0.2.0-1
 - Initial COPR package
