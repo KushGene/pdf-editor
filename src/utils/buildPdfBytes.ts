@@ -29,7 +29,6 @@ import {
   hexToColor,
   parseDaColor,
   parseDaFontName,
-  parseDaFontSize,
   setWidgetDa,
   writeCheckBoxAppearance,
   writeWidgetAppearance,
@@ -239,7 +238,8 @@ function applyTextDa(field: VariableTextField, ef: FormField, pdfDoc: PDFDocumen
         fontName = "Helv";
       }
     }
-    const fontSize = ef.fontSize > 0 ? ef.fontSize : parseDaFontSize(baseDa) ?? 12;
+    // 0 = auto size: the viewer fits the text into the widget
+    const fontSize = ef.fontSize > 0 ? ef.fontSize : 0;
     const da = composeDa(fontName, fontSize, ef.textColor ?? parseDaColor(baseDa));
     field.acroField.setDefaultAppearance(da);
     for (const w of widgets) {

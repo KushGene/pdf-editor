@@ -20,7 +20,7 @@
   "type": "Typ",
   "value": "Wert",
   "maxLength": "Max. Länge",
-  "fontSize": "Schriftgröße",
+  "fontSize": "Schriftgröße (0 = Auto)",
   "required": "Pflichtfeld",
   "readOnly": "Schreibgeschützt",
   "multiline": "Mehrzeilig",

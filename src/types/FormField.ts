@@ -11,6 +11,7 @@ export interface FormField {
   width: number;
   height: number;
   required: boolean;
+  /** Font size in points. 0 = auto (viewer fits the text into the field). */
   fontSize: number;
   alignment?: "left" | "center" | "right";
   options?: string[];

@@ -184,13 +184,15 @@ export function componentsToHex(components: number[] | undefined): string | unde
   );
 }
 
-/** Extract the font size from a default appearance string ("/Helv 12 Tf"). */
+/**
+ * Extract the font size from a default appearance string ("/Helv 12 Tf").
+ * Returns 0 for auto-sized fields ("/Helv 0 Tf").
+ */
 export function parseDaFontSize(da: string | undefined): number | undefined {
   if (!da) return undefined;
   const m = da.match(/\/[^\s/]+\s+(\d+(?:\.\d+)?)\s+Tf/);
   if (!m) return undefined;
-  const size = parseFloat(m[1]);
-  return size > 0 ? size : undefined;
+  return parseFloat(m[1]);
 }
 
 /** Extract the font name from a default appearance string. */

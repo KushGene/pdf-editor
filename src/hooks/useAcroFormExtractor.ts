@@ -45,6 +45,14 @@ export function useAcroFormExtractor(
 
         const form = pdfDoc.getForm();
         const fields = form.getFields();
+        let acroFormDa: string | undefined;
+        try {
+          acroFormDa = form.acroForm.dict
+            .lookupMaybe(PDFName.of("DA"), PDFString, PDFHexString)
+            ?.decodeText();
+        } catch {
+          // ignore
+        }
         const extracted: FormField[] = [];
         const pages = pdfDoc.getPages();
 
@@ -227,15 +235,15 @@ export function useAcroFormExtractor(
             }
 
             // Default appearance (font size, text color): the widget-level DA
-            // takes precedence over the field-level DA
+            // takes precedence over the field-level DA, then the AcroForm DA
             try {
               const widgetDa =
                 typeof (widget as any).getDefaultAppearance === "function"
                   ? (widget as any).getDefaultAppearance() ?? undefined
                   : undefined;
-              const da = widgetDa ?? field.acroField.getDefaultAppearance() ?? undefined;
+              const da = widgetDa ?? field.acroField.getDefaultAppearance() ?? acroFormDa;
               const size = parseDaFontSize(da);
-              if (size) fontSize = size;
+              if (size !== undefined) fontSize = size;
               textColor = parseDaColor(da);
             } catch {
               // ignore

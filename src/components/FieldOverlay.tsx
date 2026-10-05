@@ -14,6 +14,29 @@ interface FieldOverlayProps {
   height: number;
 }
 
+const FONT_FAMILY = "Helvetica, Arial, sans-serif";
+/** Line spacing relative to font size, as used by Acrobat for multiline fields. */
+const LINE_HEIGHT = 1.16;
+
+/** Break text into lines that fit maxWidth (ctx.font must already be set). */
+function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const lines: string[] = [];
+  for (const paragraph of text.split(/\r\n|\r|\n/)) {
+    let line = "";
+    for (const word of paragraph.split(" ")) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (line && ctx.measureText(candidate).width > maxWidth) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    }
+    lines.push(line);
+  }
+  return lines;
+}
+
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   let binary = "";
   const bytes = new Uint8Array(buffer);
@@ -102,11 +125,6 @@ export default function FieldOverlay({ pageNumber, width, height }: FieldOverlay
     for (const field of pageFields) {
       // ── Text value ──────────────────────────────────────────────────────────
       if (field.type === "text" && field.value) {
-        const fontSize =
-          (field.fontSize && field.fontSize > 0
-            ? field.fontSize
-            : Math.max(7, Math.min(field.height * 0.6, 13))) * rs;
-
         ctx.save();
         // Clip to field interior
         ctx.beginPath();
@@ -118,28 +136,44 @@ export default function FieldOverlay({ pageNumber, width, height }: FieldOverlay
         );
         ctx.clip();
 
-        ctx.font = `${fontSize}px sans-serif`;
-        ctx.fillStyle = "#111111";
-        ctx.textBaseline = "middle";
-        const midY = (field.y + field.height / 2) * rs;
+        ctx.fillStyle = field.textColor ?? "#111111";
+        const textX =
+          field.alignment === "center"
+            ? field.x + field.width / 2
+            : field.alignment === "right"
+              ? field.x + field.width - 3
+              : field.x + 3;
+        ctx.textAlign = field.alignment ?? "left";
 
-        if (field.alignment === "center") {
-          ctx.textAlign = "center";
-          ctx.fillText(
-            field.value,
-            (field.x + field.width / 2) * rs,
-            midY
-          );
-        } else if (field.alignment === "right") {
-          ctx.textAlign = "right";
-          ctx.fillText(
-            field.value,
-            (field.x + field.width - 3) * rs,
-            midY
-          );
+        if (field.multiline) {
+          // Word-wrapped and top-aligned like Acrobat; auto size (0) shrinks
+          // the font until all lines fit into the field height.
+          const maxWidth = (field.width - 6) * rs;
+          const fits = (size: number) => {
+            ctx.font = `${size * rs}px ${FONT_FAMILY}`;
+            const lines = wrapLines(ctx, field.value!, maxWidth);
+            return { lines, ok: lines.length * size * LINE_HEIGHT <= field.height - 4 };
+          };
+          let size = field.fontSize > 0 ? field.fontSize : 12;
+          let layout = fits(size);
+          if (!(field.fontSize > 0)) {
+            while (!layout.ok && size > 4) {
+              size -= 0.5;
+              layout = fits(size);
+            }
+          }
+          ctx.textBaseline = "top";
+          layout.lines.forEach((line, i) => {
+            ctx.fillText(line, textX * rs, (field.y + 2 + i * size * LINE_HEIGHT) * rs);
+          });
         } else {
-          ctx.textAlign = "left";
-          ctx.fillText(field.value, (field.x + 3) * rs, midY);
+          const fontSize =
+            (field.fontSize > 0
+              ? field.fontSize
+              : Math.max(7, Math.min(field.height * 0.6, 13))) * rs;
+          ctx.font = `${fontSize}px ${FONT_FAMILY}`;
+          ctx.textBaseline = "middle";
+          ctx.fillText(field.value, textX * rs, (field.y + field.height / 2) * rs);
         }
         ctx.restore();
       }
@@ -423,6 +457,22 @@ export default function FieldOverlay({ pageNumber, width, height }: FieldOverlay
 
             const elements: React.ReactNode[] = [];
 
+            // Widget background (/MK/BG): pdf.js renders without annotations,
+            // so draw it here. In edit mode the field rect itself carries it.
+            if (previewMode && field.backgroundColor && field.type !== "image") {
+              elements.push(
+                <Rect
+                  key={`${field.id}-bg`}
+                  x={x}
+                  y={y}
+                  width={w}
+                  height={h}
+                  fill={field.backgroundColor}
+                  listening={false}
+                />
+              );
+            }
+
             if (!previewMode) {
               const stampImage =
                 (field.type === "image" || field.type === "signature") && field.imageSrc
@@ -475,7 +525,10 @@ export default function FieldOverlay({ pageNumber, width, height }: FieldOverlay
                     listening={!isPan && !previewMode}
                     stroke={isSelected ? "rgba(59, 130, 246, 1)" : "rgba(59, 130, 246, 0.7)"}
                     strokeWidth={sw}
-                    fill={isSelected ? "rgba(59, 130, 246, 0.12)" : "rgba(59, 130, 246, 0.08)"}
+                    fill={
+                      field.backgroundColor ??
+                      (isSelected ? "rgba(59, 130, 246, 0.12)" : "rgba(59, 130, 246, 0.08)")
+                    }
                     onClick={() => handleFieldClick(field.id)}
                     onTap={() => handleFieldClick(field.id)}
                     onDblClick={openSignature}

@@ -20,7 +20,7 @@
   "type": "Type",
   "value": "Value",
   "maxLength": "Max Length",
-  "fontSize": "Font Size",
+  "fontSize": "Font Size (0 = auto)",
   "required": "Required",
   "readOnly": "Read Only",
   "multiline": "Multiline",

@@ -639,7 +639,7 @@ export default function PropertyInspector() {
                   value={field.fontSize}
                   onChange={(v) => updateField("fontSize", v)}
                   step={1}
-                  min={1}
+                  min={0}
                   max={72}
                 />
               </InputRow>
